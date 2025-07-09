@@ -1,0 +1,104 @@
+# -----------------------------------------------------------------------------
+# BioCoder-Edge: Main Configuration File
+# -----------------------------------------------------------------------------
+# This file contains all the tunable parameters for the application.
+# Edit these values to match your specific hardware and server setup.
+# -----------------------------------------------------------------------------
+
+# =============================================================================
+# Module A: Motion Detector Configuration
+# =============================================================================
+motion_detector:
+  # The width (in pixels) to which frames are resized for motion analysis.
+  # Smaller values are faster but less sensitive to small movements.
+  motion_frame_width: 640
+
+  # The minimum pixel area of a moving object to be considered significant.
+  # This helps filter out noise like insects, leaves, or sensor noise.
+  min_motion_contour_area: 500
+
+  # The duration in seconds to continue recording after motion has stopped.
+  # This ensures the full event is captured if an animal pauses briefly.
+  motion_cooldown_seconds: 10.0
+
+# =============================================================================
+# Module B: Animal Analyzer Configuration
+# =============================================================================
+animal_analyzer:
+  # The file path to the trained YOLO model weights (e.g., .pt file).
+  yolo_model_path: "yolov8n.pt"
+
+  # A list of class names that are considered significant events.
+  # If YOLO detects any of these, the event will be saved and uploaded.
+  # Names must match the class names in your YOLO model.
+  species_of_interest:
+    - 'person'
+    - 'dog'
+    - 'cat'
+    - 'bird'
+    - 'bear'
+    - 'deer'
+    - 'fox'
+
+  # The minimum confidence score (0.0 to 1.0) for a YOLO detection to be considered.
+  confidence_threshold: 0.4
+
+  # The maximum number of full-resolution frames to hold in RAM at one time.
+  # If an event is longer than this, frames will be temporarily written to disk
+  # to prevent running out of memory.
+  ram_frame_limit: 300
+
+  # The local directory where final video/JSON packages are placed before upload.
+  # This path should be relative to the project root or an absolute path.
+  output_pending_dir: "data/pending_upload/"
+
+  # A directory for storing temporary video parts for very long events.
+  # This should be a path with fast I/O if possible (like /tmp).
+  output_temp_dir: "/tmp/biocoder_edge_temp/"
+
+# =============================================================================
+# Module C: Data Uploader Configuration
+# =============================================================================
+uploader:
+  # The interval in seconds for the uploader to scan the pending directory for new files.
+  scan_interval_seconds: 300 # (300 seconds = 5 minutes)
+
+  # --- SFTP Server Configuration (for file transfer) ---
+  sftp:
+    # IP address or hostname of your remote cloud server.
+    host: "cloud_server_ip_or_hostname"
+    
+    # SFTP port number (usually 22).
+    port: 22
+    
+    # The username for the SFTP connection.
+    username: "sftp_user"
+    
+    # The absolute path to the private SSH key for passwordless authentication.
+    # Highly recommended over using passwords.
+    ssh_key_path: "/home/user/.ssh/id_rsa"
+    
+    # The absolute path on the remote server where video files should be stored.
+    # The SFTP user must have write permissions to this directory.
+    remote_video_dir: "/data/biocoder/videos/"
+    
+    # The absolute path on the remote server where JSON metadata files should be stored.
+    remote_json_dir: "/data/biocoder/json/"
+
+  # --- PostgreSQL Database Configuration ---
+  database:
+    # IP address or hostname of your database server. Can be the same as SFTP host.
+    host: "cloud_server_ip_or_hostname"
+    
+    # PostgreSQL port number (usually 5432).
+    port: 5432
+    
+    # The name of the database to connect to.
+    dbname: "biocoder_db"
+    
+    # The username for the database connection.
+    user: "db_user"
+    
+    # The password for the database user.
+    # For production, consider using more secure methods like environment variables.
+    password: "super_secret_db_password"
