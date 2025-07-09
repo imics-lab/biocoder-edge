@@ -52,7 +52,7 @@ def simulate_motion_detector(video_path: str, frame_queue: Queue):
         print(f"[Simulator] Fed frame #{frame_count}", end='\r')
         
         # Optional: Uncomment to simulate a real-time frame rate (e.g., 15 FPS)
-        # time.sleep(1/15)
+        time.sleep(1/15)
 
     # After the video is finished, send the end-of-event signal
     frame_queue.put(None)
