@@ -1,0 +1,25 @@
+# -----------------------------------------------------------------------------
+# Python Package Requirements for BioCoder-Edge
+# -----------------------------------------------------------------------------
+# This file lists all the Python dependencies needed to run the application.
+# Install them using the following command:
+# pip install -r requirements.txt
+#
+# For production deployments, it is recommended to pin versions for stability,
+# e.g., "opencv-python==4.8.0.76". For development, un-pinned versions
+# are generally acceptable.
+# -----------------------------------------------------------------------------
+
+# Core Computer Vision & Array Manipulation
+opencv-python       # For all camera access, image/video processing (resize, blur), and video encoding.
+numpy               # Fundamental package for handling image data as numerical arrays.
+
+# AI / Object Detection
+ultralytics         # The official package for running YOLO models for animal detection.
+
+# Database & Networking
+psycopg2-binary     # PostgreSQL database adapter for Python. Used by the uploader to record event metadata.
+paramiko            # A pure Python implementation of the SSHv2 protocol, providing both client and server functionality. Used for SFTP file transfers.
+
+# Utilities
+PyYAML              # For parsing the config.yaml file.
