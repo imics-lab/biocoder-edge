@@ -71,41 +71,6 @@ Follow these instructions to get a copy of the project up and running on your lo
     -   Copy the template: `cp config/config.yaml.template config/config.yaml` (You will need to create the `config.yaml.template` file first).
     -   Edit `config/config.yaml` and fill in all the necessary parameters, especially the `animal_analyzer` and `uploader` sections with your model paths, server IP addresses, credentials, and paths.
 
-    *Your `config.yaml` should look something like this:*
-    ```yaml
-    # Module A: Motion Detector
-    motion_detector:
-      motion_frame_width: 640
-      min_motion_contour_area: 500
-      motion_cooldown_seconds: 10.0
-
-    # Module B: Animal Analyzer
-    animal_analyzer:
-      yolo_model_path: "yolov8n.pt"
-      species_of_interest: ['deer', 'fox', 'bear']
-      confidence_threshold: 0.4
-      ram_frame_limit: 300
-      output_pending_dir: "data/pending_upload/"
-      output_temp_dir: "/tmp/biocoder_edge_temp/"
-
-    # Module C: Data Uploader
-    uploader:
-      scan_interval_seconds: 300
-      sftp:
-        host: "your_cloud_server_ip"
-        port: 22
-        username: "your_sftp_user"
-        ssh_key_path: "/home/user/.ssh/id_rsa_biocoder"
-        remote_video_dir: "/path/to/remote/videos/"
-        remote_json_dir: "/path/to/remote/json/"
-      database:
-        host: "your_cloud_server_ip"
-        port: 5432
-        dbname: "biocoder_db"
-        user: "db_user"
-        password: "db_password"
-    ```
-
 ## Usage
 
 To run the entire application, execute the main script from the root directory:
