@@ -100,6 +100,4 @@ def main():
         print("--- BioCoder-Edge Application Shut Down ---")
 
 if __name__ == "__main__":
-    # This check is crucial for multiprocessing to work correctly on all platforms.
-    # It ensures that child processes don't re-import and re-run this script.
     main()
