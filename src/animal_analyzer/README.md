@@ -100,3 +100,66 @@ The generated JSON file must conform to the following structure:
   ]
 }
 ```
+
+---
+---
+
+### **Subsection: Object Tracking and Event Significance Logic**
+
+This section details the per-frame processing loop within the `AnimalAnalyzer` module, focusing on how raw YOLO detections are converted into robust, tracked objects to reliably determine event significance.
+
+#### **5.1. Objective**
+
+The primary objective of this logic is to overcome the inherent instability of frame-by-frame object detection. A simple approach of triggering on any single YOLO detection would be highly susceptible to:
+*   **False Positives:** A random pattern (e.g., a rock, foliage) being misidentified as an animal for a single frame.
+*   **False Negatives:** A real animal being briefly occluded or in a difficult pose, causing the detector to miss it for a few frames.
+
+To solve this, the system must maintain the "state" of detected objects over time, only confirming an event as significant if an object of interest persists consistently.
+
+#### **5.2. Strategy: Simple Centroid-Based Tracking**
+
+A lightweight and efficient centroid-based tracking algorithm will be implemented. This method does not require heavy computational models like Kalman filters but is highly effective for this use case. The core idea is to assign a unique ID to each detected object and track the movement of its center point (centroid) from one frame to the next.
+
+#### **5.3. Tracked Object State**
+
+For each object being tracked, the system will maintain a data structure (e.g., a dictionary) containing the following state information:
+
+*   `id` (int): A unique identifier for the tracked object.
+*   `label` (str): The class label of the object (e.g., 'deer').
+*   `centroid` (tuple): The last known `(x, y)` coordinate of the object's center.
+*   `frames_seen` (int): A counter for the total number of frames this object has been successfully tracked.
+*   `frames_since_seen` (int): A counter for the number of consecutive frames this object has been missing.
+*   `last_detection_data` (dict): The full data (box, confidence) from its most recent detection.
+
+#### **5.4. Step-by-Step Per-Frame Tracking Logic**
+
+Inside the main event loop, for each new frame received from the queue, the following steps are executed:
+
+1.  **Run Inference:** Execute the YOLO model on the current frame to get a list of raw detections for this frame. Each detection includes a `label`, `confidence`, and `bounding_box`.
+
+2.  **Pre-process Detections:** For each raw detection that exceeds the `CONFIDENCE_THRESHOLD`, calculate the centroid `(x, y)` of its bounding box.
+
+3.  **Associate Detections with Existing Tracks (The Matching Logic):**
+    a. If there are no existing tracked objects, register all new detections as new tracks.
+    b. If there are existing tracks, calculate the Euclidean distance between the centroid of each existing track and the centroid of each new detection.
+    c. For each existing track, find the new detection with the minimum distance to it.
+    d. If this minimum distance is below a configurable threshold (`MAX_DISTANCE`, e.g., 100 pixels), consider it a match. This new detection is now associated with that existing track.
+
+4.  **Update State Based on Matching Results:**
+    *   **Case A: For each successful match (an existing track is associated with a new detection):**
+        *   Update the track's `centroid` to the new position.
+        *   Increment its `frames_seen` counter.
+        *   Reset its `frames_since_seen` counter to `0`.
+        *   Update its `last_detection_data`.
+        *   **Check for Significance:** If the track's `label` is in `SPECIES_OF_INTEREST` and its `frames_seen` count has just crossed the `EVENT_CONFIRMATION_FRAMES` threshold, set the event-wide `significant_event_detected` flag to `True`.
+    *   **Case B: For new detections that were not matched to any existing track:**
+        *   These are considered new objects. Register each one by creating a new tracked object state, assigning it a new unique `id`, and setting `frames_seen = 1` and `frames_since_seen = 0`.
+    *   **Case C: For existing tracks that were not matched to any new detection:**
+        *   These objects were not seen in the current frame. Increment their `frames_since_seen` counter.
+
+5.  **Prune Stale Tracks:** After updating all tracks, iterate through the list of tracked objects. If any object has a `frames_since_seen` value greater than the `TRACKING_INACTIVITY_FRAMES` threshold, it is considered to have left the scene. Remove it from the list of tracked objects.
+
+#### **5.5. How This Logic Solves the Core Problems**
+
+*   **Handling False Positives:** A single-frame false positive will be registered as a new track with `frames_seen = 1`. In the very next frame, it will not be detected again. Its `frames_since_seen` counter will begin to increment. It will be pruned from the tracker long before its `frames_seen` count can ever reach the `EVENT_CONFIRMATION_FRAMES` threshold. Therefore, it will never trigger a significant event.
+*   **Handling False Negatives:** A confirmed animal track (e.g., `frames_seen = 20`) might disappear for a few frames. Its `frames_since_seen` counter will increase to 1, 2, 3, etc. As long as it is re-detected before this counter exceeds `TRACKING_INACTIVITY_FRAMES`, the system will match it, reset the counter to `0`, and continue incrementing `frames_seen`. The track is preserved, and the event remains valid.
