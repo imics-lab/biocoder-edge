@@ -23,18 +23,37 @@ class MotionDetector:
         self.cooldown = self.config['motion_cooldown_seconds']
         
         # Kernel size for Gaussian blur - must be odd
-        self.blur_kernel = (21, 21) 
+        self.blur_kernel = tuple(self.config.get('blur_kernel_size', [21,21]))
+        
+        # 1️⃣ Detect if a CUDA-enabled GPU is present
+        self.use_gpu = False
+        try:
+            self.use_gpu = cv2.cuda.getCudaEnabledDeviceCount() > 0
+        except AttributeError:
+            # OpenCV wasn’t built with CUDA
+            self.use_gpu = False
+
+        print(f"GPU accel {'ENABLED' if self.use_gpu else 'NOT available'} – "
+              f"{'using GPU pipelines' if self.use_gpu else 'falling back to CPU'}")
         
         # --- Initialize components ---
         print("Initializing camera...")
-        self.camera = cv2.VideoCapture(0) # Use 0 for the default webcam
+        self.camera = cv2.VideoCapture("/Users/himsonchapagain/Downloads/Deer.mp4") # Use 0 for the default webcam
         if not self.camera.isOpened():
             raise IOError("Cannot open webcam. Please check camera connection.")
         print("Camera initialized successfully.")
 
         # Initialize the background subtractor.
         # `detectShadows=True` is crucial for outdoor settings to help filter out shadows.
-        self.bg_subtractor = cv2.createBackgroundSubtractorMOG2(history=500, varThreshold=50, detectShadows=True)
+        # Background subtractor: GPU version if available
+        if self.use_gpu:
+            self.bg_subtractor = cv2.cuda.createBackgroundSubtractorMOG2(
+                history=500, varThreshold=50, detectShadows=True
+            )
+        else:
+            self.bg_subtractor = cv2.createBackgroundSubtractorMOG2(
+                history=500, varThreshold=50, detectShadows=True
+            )
         
         self.is_running = False
         self.queue = None
@@ -62,7 +81,14 @@ class MotionDetector:
         """
         self.is_running = False
         print("Stopping Motion Detector...")
-
+        
+        # If we’ve already set self.queue in start(), send a final sentinel
+        if self.queue is not None:
+            try:
+                self.queue.put(None)
+                print("Sent final None sentinel to queue for graceful shutdown.")
+            except Exception as e:
+                print(f"Failed to send shutdown sentinel: {e}")
 
     def _processing_loop(self) -> None:
         """
@@ -78,17 +104,49 @@ class MotionDetector:
                 print("Failed to grab frame from camera. Exiting loop.")
                 break
 
-            # 2. Pre-process the frame for motion analysis
-            processed_frame = self._preprocess_frame(original_frame)
+            if self.use_gpu:
+               # Upload frame
+                gpu_frame = cv2.cuda_GpuMat()
+                gpu_frame.upload(original_frame)
 
-            # 3. Apply background subtraction to get a motion mask
-            fg_mask = self.bg_subtractor.apply(processed_frame)
+                # Resize on GPU
+                h, w = original_frame.shape[:2]
+                new_w = self.motion_frame_width
+                new_h = int(h * (new_w / float(w)))
+                gpu_resized = cv2.cuda.resize(gpu_frame, (new_w, new_h))
 
-            # 4. Clean the mask to remove noise
-            cleaned_mask = self._clean_mask(fg_mask)
+                # Grayscale + blur on GPU
+                gpu_gray = cv2.cuda.cvtColor(gpu_resized, cv2.COLOR_BGR2GRAY)
+                blur_filter = cv2.cuda.createGaussianFilter(
+                    gpu_gray.type(), gpu_gray.type(),
+                    ksize=self.blur_kernel, sigma1=0
+                )
+                gpu_blurred = blur_filter.apply(gpu_gray)
+
+                # Background subtraction
+                fg_gpu = self.bg_subtractor.apply(gpu_blurred)
+
+                # Threshold + morph on GPU
+                _, fg_thresh = cv2.cuda.threshold(fg_gpu, 250, 255, cv2.THRESH_BINARY)
+                erode = cv2.cuda.createMorphologyFilter(
+                    cv2.MORPH_ERODE, fg_thresh.type(), kernel=None, iterations=2
+                )
+                dilate = cv2.cuda.createMorphologyFilter(
+                    cv2.MORPH_DILATE, fg_thresh.type(), kernel=None, iterations=2
+                )
+                gpu_eroded = erode.apply(fg_thresh)
+                gpu_clean  = dilate.apply(gpu_eroded)
+
+                # Download mask for contour detection
+                mask = gpu_clean.download()
+            else:
+                # CPU fallback
+                processed = self._preprocess_frame(original_frame)
+                fg_mask   = self.bg_subtractor.apply(processed)
+                mask      = self._clean_mask(fg_mask)
 
             # 5. Find contours and check for significant motion
-            motion_found_this_frame = self._find_significant_motion(cleaned_mask)
+            motion_found_this_frame = self._find_significant_motion(mask)
 
             # 6. Implement the state machine logic
             if state == "IDLE":

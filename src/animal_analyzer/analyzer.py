@@ -9,6 +9,7 @@ from multiprocessing import Queue
 from typing import Dict, List, Tuple
 from scipy.spatial import distance as dist
 from ultralytics import YOLO
+from collections import Counter
 
 class AnimalAnalyzer:
     """
@@ -25,11 +26,13 @@ class AnimalAnalyzer:
         self.queue = shared_queue
         # We only need the 'animal_analyzer' part of the config
         self.config = config['animal_analyzer']
+        self.device_id = self.config.get('device_id', 'unknown_device')
+        self.location  = self.config.get('location', {'latitude':0.0,'longitude':0.0})
         self.is_running = False
 
         # --- Initialize YOLO Model ---
         print("Loading YOLO model...")
-        self.model = YOLO(self.config['YOLO_MODEL_PATH'])
+        self.model = YOLO(self.config['yolo_model_path'])
         print("YOLO model loaded successfully.")
 
         # --- Ensure Directories Exist ---
@@ -104,11 +107,13 @@ class AnimalAnalyzer:
 
                     # If the event is significant, log all new detections of tracked, interesting species
                     if significant_event_detected and obj_data['label'] in self.config['species_of_interest'] and obj_data['just_seen']:
+                        cx, cy = obj_data['centroid']
+                        w,  h  = obj_data['last_box_xywh'][2], obj_data['last_box_xywh'][3]
                         all_confirmed_detections.append({
                             "frame_index": frame_index,
                             "label": obj_data['label'],
                             "confidence": float(obj_data['last_confidence']),
-                            "box_xywh": [int(c) for c in obj_data['last_box_xywh']]
+                            "box_xywh": [cx, cy, int(w), int(h)]
                         })
 
                 # 4. HANDLE MEMORY MANAGEMENT (SPILL TO DISK)
@@ -147,11 +152,12 @@ class AnimalAnalyzer:
                 if box.conf[0] >= self.config['confidence_threshold']:
                     x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
                     w, h = x2 - x1, y2 - y1
+                    cx, cy = int(x1 + w/2), int(y1 + h/2)
                     detections.append({
                         'label': self.model.names[int(box.cls[0])],
                         'confidence': box.conf[0].cpu().numpy(),
-                        'box_xywh': (x1, y1, w, h),
-                        'centroid': (int(x1 + w / 2), int(y1 + h / 2))
+                        'box_xywh':  (cx, cy, int(w), int(h)),
+                        'centroid': (cx, cy)
                     })
         return detections
 
@@ -164,7 +170,7 @@ class AnimalAnalyzer:
                 tracked_objects[next_object_id] = {
                     'id': next_object_id, 'label': det['label'], 'centroid': det['centroid'],
                     'frames_seen': 1, 'frames_since_seen': 0, 'just_seen': True,
-                    'last_confidence': det['confidence'], 'last_box_xywh': det['box_xywh']
+                    'last_confidence': det['confidence'], 'last_box_xywh':  det['box_xywh'],
                 }
                 next_object_id += 1
             return tracked_objects, next_object_id
@@ -270,18 +276,26 @@ class AnimalAnalyzer:
             return ""
 
     def _create_json_metadata(self, event_id: str, video_path: str, detections: List, start_time: float, end_time: float) -> None:
-        unique_species = sorted(list(set(d['label'] for d in detections)))
+        species_counts = Counter(d['label'] for d in detections)
+        unique_species = list(species_counts.keys())
+        if species_counts:
+            primary = species_counts.most_common(1)[0][0]
+        else:
+            primary = "N/A"
         metadata = {
             "eventId": event_id,
-            "deviceId": "jetson_orin_001",
-            "location": {"latitude": 0.0, "longitude": 0.0},
+            "deviceId": self.device_id,
+            "location": {
+                "latitude": self.location['latitude'],
+                "longitude": self.location['longitude']
+            },
             "timestamp_start_utc": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(start_time)),
             "timestamp_end_utc": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(end_time)),
             "local_video_path": video_path,
             "video_duration_seconds": round(end_time - start_time, 2),
             "event_summary": {
                 "species_list": unique_species,
-                "primary_species": unique_species[0] if unique_species else "N/A",
+                "primary_species": primary,
                 "max_confidence": max((d['confidence'] for d in detections), default=0.0)
             },
             "detections": detections

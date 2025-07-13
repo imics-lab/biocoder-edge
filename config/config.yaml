@@ -9,6 +9,9 @@
 # Module A: Motion Detector Configuration
 # =============================================================================
 motion_detector:
+
+
+  blur_kernel_size: [21, 21]
   # The width (in pixels) to which frames are resized for motion analysis.
   # Smaller values are faster but less sensitive to small movements.
   motion_frame_width: 640
@@ -25,23 +28,33 @@ motion_detector:
 # Module B: Animal Analyzer Configuration
 # =============================================================================
 animal_analyzer:
+
+  device_id: "Himson's Macbook Air"
+
+  location:
+    latitude:  12.345678    # test val
+    longitude: 98.765432    # test val
+
   # The file path to the trained YOLO model weights (e.g., .pt file).
-  yolo_model_path: "yolov8n.pt"
+  yolo_model_path: "model_weight/best.pt"
 
   # A list of class names that are considered significant events.
   # If YOLO detects any of these, the event will be saved and uploaded.
   # Names must match the class names in your YOLO model.
   species_of_interest:
-    - 'person'
-    - 'dog'
-    - 'cat'
-    - 'bird'
-    - 'bear'
-    - 'deer'
-    - 'fox'
+    - 'Deer'
+    - 'Rabbit'
+    - 'Squirrel'
+    - 'Vulture'
+
+  tracking_max_distance: 75
 
   # The minimum confidence score (0.0 to 1.0) for a YOLO detection to be considered.
   confidence_threshold: 0.4
+
+  event_confirmation_frames: 5         
+  tracking_inactivity_frames: 10 
+
 
   # The maximum number of full-resolution frames to hold in RAM at one time.
   # If an event is longer than this, frames will be temporarily written to disk
@@ -66,39 +79,39 @@ uploader:
   # --- SFTP Server Configuration (for file transfer) ---
   sftp:
     # IP address or hostname of your remote cloud server.
-    host: "cloud_server_ip_or_hostname"
+    host: "20.14.93.39"
     
     # SFTP port number (usually 22).
     port: 22
     
     # The username for the SFTP connection.
-    username: "sftp_user"
+    username: "imics"
     
     # The absolute path to the private SSH key for passwordless authentication.
     # Highly recommended over using passwords.
-    ssh_key_path: "/home/user/.ssh/id_rsa"
+    ssh_key_path: "/Users/himsonchapagain/.ssh/azure_vm2_key"
     
     # The absolute path on the remote server where video files should be stored.
     # The SFTP user must have write permissions to this directory.
-    remote_video_dir: "/data/biocoder/videos/"
+    remote_video_dir: "/home/imics/data/Yolo-Gpu-2/app/uploads/incoming"
     
     # The absolute path on the remote server where JSON metadata files should be stored.
-    remote_json_dir: "/data/biocoder/json/"
+    remote_json_dir: "/home/imics/data/Yolo-Gpu-2/app/uploads/incoming/detections"
 
   # --- PostgreSQL Database Configuration ---
   database:
     # IP address or hostname of your database server. Can be the same as SFTP host.
-    host: "cloud_server_ip_or_hostname"
+    host: "127.0.0.1"
     
     # PostgreSQL port number (usually 5432).
     port: 5432
     
     # The name of the database to connect to.
-    dbname: "biocoder_db"
+    dbname: "yolo_db"
     
     # The username for the database connection.
-    user: "db_user"
+    user: "yolo_user"
     
     # The password for the database user.
     # For production, consider using more secure methods like environment variables.
-    password: "super_secret_db_password"
+    password: "yolo_pass"

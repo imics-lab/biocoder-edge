@@ -4,10 +4,12 @@ import yaml
 import argparse
 import sys
 from multiprocessing import Process, Queue
+import os
 
-# This script is in the 'scripts/' directory, so we need to adjust the Python path
-# to be able to import from the 'src/' directory at the project root.
-sys.path.append('..')
+# Ensure that the project root is on sys.path, no matter where we run from
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..'))
+sys.path.insert(0, PROJECT_ROOT)
 from src.animal_analyzer.analyzer import AnimalAnalyzer
 
 def load_config(config_path="config/config.yaml"):

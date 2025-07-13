@@ -19,7 +19,7 @@ class DataUploader:
         self.config = config['uploader']
         self.pending_dir = config['animal_analyzer']['output_pending_dir']
         # Construct the 'uploaded' path relative to the 'pending' path
-        self.uploaded_dir = os.path.join(os.path.dirname(os.path.dirname(self.pending_dir.rstrip('/'))), 'uploaded')
+        self.uploaded_dir = os.path.join(os.path.dirname(self.pending_dir.rstrip('/')), 'uploaded')
         os.makedirs(self.uploaded_dir, exist_ok=True)
         
         self.is_running = False
@@ -91,10 +91,10 @@ class DataUploader:
             # This INSERT query assumes a table named 'events' exists.
             # It sets the status to 'pending'.
             sql_insert = """
-                INSERT INTO events (eventId, deviceId, timestamp_start_utc, timestamp_end_utc, 
+                INSERT INTO events (event_id, device_id, timestamp_start_utc, timestamp_end_utc, 
                                     video_duration_seconds, primary_species, status)
                 VALUES (%s, %s, %s, %s, %s, %s, 'pending')
-                ON CONFLICT (eventId) DO NOTHING;
+                ON CONFLICT (event_id) DO NOTHING;
             """
             # Using ON CONFLICT prevents errors if we retry a job where INSERT succeeded but a later step failed.
             cursor.execute(sql_insert, (
@@ -125,9 +125,36 @@ class DataUploader:
             sql_update = """
                 UPDATE events 
                 SET status = 'completed', remote_video_path = %s, remote_json_path = %s
-                WHERE eventId = %s;
+                WHERE event_id = %s;
             """
             cursor.execute(sql_update, (remote_video_path, remote_json_path, metadata['eventId']))
+            db_conn.commit()
+            
+            # --- Step 5: INSERT into detections table ---
+            print("  > Inserting into detections table...")
+            # 5.1 Build summaries from metadata
+            classes_detected = metadata['event_summary']['species_list']
+            counts = {}
+            for det in metadata.get('detections', []):
+                lbl = det['label']
+                counts[lbl] = counts.get(lbl, 0) + 1
+            
+            # 5.2 Insert into detections table
+            sql_insert_det = """
+                INSERT INTO detections
+                    (event_id, detection_json, classes_detected, max_count_per_frame)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (event_id) DO NOTHING;
+            """
+            cursor.execute(
+                sql_insert_det,
+                (
+                    metadata['eventId'],
+                    json.dumps(metadata),        # raw JSON payload
+                    classes_detected,            # Python list → PostgreSQL TEXT[]
+                    json.dumps(counts)           # JSONB
+                )
+            )
             db_conn.commit()
             
             # If we reach here, all remote operations were successful
