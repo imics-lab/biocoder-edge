@@ -7,7 +7,7 @@ An intelligent, field-deployable animal monitoring system. BioCoder-Edge uses a 
 This repository contains the source code for the edge device component of the BioCoder project. The system is designed to run on a power-constrained device (like a Jetson Nano Orin) deployed in the wild. It employs a three-module architecture to maximize efficiency and reliability:
 
 1.  **Motion Detection:** A lightweight, low-power process continuously monitors a low-resolution video stream for any motion.
-2.  **AI Analysis:** When motion is detected, high-resolution frames are passed to a more powerful YOLO-based model to identify specific animal species.
+2.  **Animal Analysis:** When motion is detected, high-resolution frames are passed to a more powerful YOLO-based model to identify specific animal species.
 3.  **Data Upload:** If an animal of interest is confirmed, the event (video and metadata) is packaged and handed to a resilient uploader that sends the data to a cloud server.
 
 This approach ensures that the power-hungry GPU and network components are only activated when there is a high probability of a significant biological event, dramatically extending battery life.
@@ -100,4 +100,5 @@ The `scripts/` directory contains tools to help test parts of the system in isol
 -   `test_camera.py`: Verify that your camera is detected and working correctly.
 -   `test_yolo.py`: Run the YOLO model on a test image or video to confirm it's functional.
 -   `test_db_connection.py`: Check if the application can connect to your remote PostgreSQL database with the provided credentials.
+-   `test_detector.py`: Test motion detection module functionality using a video file.
 
