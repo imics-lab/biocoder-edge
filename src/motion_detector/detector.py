@@ -26,7 +26,7 @@ class MotionDetector:
         self.cooldown = self.config['motion_cooldown_seconds']
         
         # Kernel size for Gaussian blur - must be odd
-        self.blur_kernel = (21, 21) 
+        self.blur_kernel = tuple(self.config.get('blur_kernel_size', [21,21]))
         
         # --- Initialize components ---
         print("Initializing video source...")
