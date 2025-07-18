@@ -74,13 +74,25 @@ class MotionDetector:
         """
         state = "IDLE"
         last_motion_time = 0
+        consecutive_failures = 0
+        max_failures = 5
 
         while self.is_running:
             # 1. Read a frame from the camera
             ret, original_frame = self.camera.read()
+            
             if not ret:
-                print("Failed to grab frame from camera or end of video. Exiting loop.")
-                break
+                consecutive_failures += 1
+                print(f"Failed to grab frame (attempt {consecutive_failures})")
+            
+                if consecutive_failures >= max_failures:
+                    print("Maximum consecutive failures reached. Exiting loop.")
+                    break
+            
+                time.sleep(0.1)
+                continue
+            
+            consecutive_failures = 0
 
             # 2. Pre-process the frame for motion analysis
             processed_frame = self._preprocess_frame(original_frame)
