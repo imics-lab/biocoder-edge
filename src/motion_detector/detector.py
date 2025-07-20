@@ -29,15 +29,12 @@ class MotionDetector:
         self.blur_kernel = tuple(self.config.get('blur_kernel_size', [21,21]))
         
         # --- Initialize components ---
-        print("Initializing video source...")
-        self.camera = cv2.VideoCapture(video_source) 
-        if not self.camera.isOpened():
-            raise IOError(f"Cannot open video source: {video_source}")
-        print("Video source initialized successfully.")
+        self.video_source = video_source
+        self.camera = None # Initialize camera as None
 
         # Initialize the background subtractor.
         # `detectShadows=True` is crucial for outdoor settings to help filter out shadows.
-        self.bg_subtractor = cv2.createBackgroundSubtractorMOG2(history=500, varThreshold=50, detectShadows=True)
+        self.bg_subtractor = None
         
         self.is_running = False
         self.queue = None
@@ -53,6 +50,19 @@ class MotionDetector:
         if self.is_running:
             print("Motion detector is already running.")
             return
+        
+         # 2. ADD camera initialization here. This now runs
+        #    inside the new process, avoiding the error.
+        print("Initializing video source...")
+        self.camera = cv2.VideoCapture(self.video_source)
+        if not self.camera.isOpened():
+            # You can decide how to handle this error. Raising it might
+            # not be visible, so printing and returning is safer.
+            print(f"FATAL: Cannot open video source: {self.video_source} in child process.")
+            return
+        print("Video source initialized successfully.")
+        
+        self.bg_subtractor = cv2.createBackgroundSubtractorMOG2(history=500, varThreshold=50, detectShadows=True)
             
         self.queue = shared_queue
         self.is_running = True

@@ -28,6 +28,7 @@ class AnimalAnalyzer:
         self.config = config['animal_analyzer']
         self.device_id = self.config.get('device_id', 'unknown_device')
         self.location  = self.config.get('location', {'latitude':0.0,'longitude':0.0})
+        self.output_fps = self.config.get('output_fps', 30.0) 
         self.is_running = False
 
         # --- Initialize YOLO Model ---
@@ -250,7 +251,7 @@ class AnimalAnalyzer:
         height, width, _ = frames[0].shape
         temp_path = os.path.join(self.config['output_temp_dir'], f"{event_id}_part_{part_num}.mp4")
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        out = cv2.VideoWriter(temp_path, fourcc, 15.0, (width, height))
+        out = cv2.VideoWriter(temp_path, fourcc, self.output_fps, (width, height))
         for frame in frames: out.write(frame)
         out.release()
         print(f"  > Wrote {temp_path}")
@@ -262,7 +263,15 @@ class AnimalAnalyzer:
         file_list_path = os.path.join(self.config['output_temp_dir'], f"{event_id}_filelist.txt")
         with open(file_list_path, 'w') as f:
             for path in temp_parts: f.write(f"file '{os.path.abspath(path)}'\n")
-        command = ['ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', file_list_path, '-c', 'copy', final_video_path]
+        command = [
+        'ffmpeg', '-y',
+        '-f', 'concat', '-safe', '0', '-i', file_list_path,
+        '-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100',
+        '-c:v', 'libx264', '-profile:v', 'baseline', '-level', '3.0', '-pix_fmt', 'yuv420p',
+        '-c:a', 'aac', '-shortest',
+        '-movflags', '+faststart',
+        final_video_path
+    ]
         try:
             print(f"Running FFmpeg to create {final_video_path}...")
             subprocess.run(command, check=True, capture_output=True, text=True)

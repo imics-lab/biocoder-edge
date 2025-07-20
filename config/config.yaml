@@ -35,6 +35,8 @@ animal_analyzer:
     latitude:  12.345678    # test val
     longitude: 98.765432    # test val
 
+  output_fps: 30.0  # The FPS for output video files. Adjust based on your needs.
+
   # The file path to the trained YOLO model weights (e.g., .pt file).
   yolo_model_path: "model_weight/best.pt"
 
