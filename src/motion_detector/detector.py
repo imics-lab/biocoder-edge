@@ -144,15 +144,17 @@ class MotionDetector:
                     if self.queue: self.queue.put(original_frame)
             
             elif state == "DETECTING":
+                # When in the DETECTING state, always send the frame to the analyzer.
+                if self.queue: self.queue.put(original_frame)
+
+                # If motion is found in the current frame, reset the cooldown timer.
                 if motion_found_this_frame:
-                    # If motion continues, update the timer and send the frame
                     last_motion_time = time.time()
-                    if self.queue: self.queue.put(original_frame)
+                # If no motion is found, check if the cooldown period has expired.
                 else:
-                    # If motion stops, check if the cooldown period has expired
                     if time.time() - last_motion_time > self.cooldown:
                         print(f"Cooldown of {self.cooldown}s expired. Event finished. Changing to IDLE state.")
-                        # Send the end-of-event signal and reset state
+                        # Send the end-of-event signal and reset state.
                         if self.queue: self.queue.put(None)
                         state = "IDLE"
 
