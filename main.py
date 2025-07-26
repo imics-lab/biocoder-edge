@@ -4,6 +4,7 @@ import yaml
 import time
 from multiprocessing import Process, Queue
 import sys
+import argparse
 
 # Import the main classes from the source directory
 from src.motion_detector.detector import MotionDetector
@@ -33,16 +34,20 @@ def load_config(config_path="config/config.yaml"):
 def main():
     """
     The main entry point for the BioCoder-Edge application.
-    
-    This function initializes and starts the three main modules:
-    1. MotionDetector: Watches the camera for motion.
-    2. AnimalAnalyzer: Analyzes motion events for animals.
-    3. DataUploader: Uploads confirmed events to the cloud.
-    
-    Each module runs in its own independent process to ensure that a slow
-    or blocked module does not affect the others.
     """
+    # --- NEW: Add argument parsing ---
+    parser = argparse.ArgumentParser(description="Run the BioCoder-Edge application.")
+    parser.add_argument(
+        '--video',
+        type=str,
+        default=0,
+        help="Path to a video file to use as input. Defaults to camera index 0."
+    )
+    args = parser.parse_args()
+    video_source = args.video if args.video == 0 else str(args.video)
+
     print("--- BioCoder-Edge Application Starting ---")
+    print(f"Using video source: {video_source}")
 
     # 1. Load configuration from the YAML file
     config = load_config()
@@ -53,7 +58,7 @@ def main():
 
     # 3. Instantiate the main module classes
     try:
-        motion_detector = MotionDetector(config)
+        motion_detector = MotionDetector(config, video_source=video_source)
         animal_analyzer = AnimalAnalyzer(frame_queue, config)
         data_uploader = DataUploader(config)
     except KeyError as e:

@@ -39,8 +39,8 @@ class MotionDetector:
         self.is_running = False
         self.queue = None
         self.debug_mode = debug_mode
-
-
+        self.frame_delay = 0
+        
     def start(self, shared_queue: Optional[Queue] = None) -> None:
         """
         Starts the main processing loop of the motion detector.
@@ -60,6 +60,16 @@ class MotionDetector:
             # not be visible, so printing and returning is safer.
             print(f"FATAL: Cannot open video source: {self.video_source} in child process.")
             return
+        
+        if isinstance(self.video_source, str):
+            fps = self.camera.get(cv2.CAP_PROP_FPS)
+            if fps > 0:
+                self.frame_delay = 1 / fps
+                print(f"Video file detected. Simulating FPS: {fps:.2f} (Delay: {self.frame_delay:.4f}s)")
+            else:
+                self.frame_delay = 1 / 30 # Default if FPS is not available
+                print(f"Video file detected, but FPS not readable. Defaulting to 30 FPS.")
+                
         print("Video source initialized successfully.")
         
         self.bg_subtractor = cv2.createBackgroundSubtractorMOG2(history=500, varThreshold=50, detectShadows=True)
@@ -92,6 +102,13 @@ class MotionDetector:
             ret, original_frame = self.camera.read()
             
             if not ret:
+                if isinstance(self.video_source, str):
+                    print("End of video file reached. Finalizing event.")
+                    # If an event was in progress, send the final signal
+                    if self.queue and state == "DETECTING":
+                        self.queue.put(None)
+                    break # Exit the loop cleanly
+                
                 consecutive_failures += 1
                 print(f"Failed to grab frame (attempt {consecutive_failures})")
             
@@ -139,6 +156,9 @@ class MotionDetector:
                         if self.queue: self.queue.put(None)
                         state = "IDLE"
 
+            if self.frame_delay > 0:
+                time.sleep(self.frame_delay)
+            
             # If in debug mode, display the visual feedback window
             if self.debug_mode:
                 self._show_debug_window(original_frame, cleaned_mask, significant_contours, state, last_motion_time)
