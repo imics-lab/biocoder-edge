@@ -76,7 +76,7 @@ animal_analyzer:
 # =============================================================================
 uploader:
   # The interval in seconds for the uploader to scan the pending directory for new files.
-  scan_interval_seconds: 300 # (300 seconds = 5 minutes)
+  scan_interval_seconds: 60 # (300 seconds = 5 minutes)
 
   # --- SFTP Server Configuration (for file transfer) ---
   sftp:
