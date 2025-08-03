@@ -20,6 +20,34 @@ This approach ensures that the power-hungry GPU and network components are only 
 -   **Resilient Data Upload:** A background process reliably uploads data to a remote server using SFTP and records metadata in a PostgreSQL database, automatically retrying on network failure.
 -   **Modular Architecture:** The system is built with three independent processes that communicate safely, ensuring stability and responsiveness.
 
+## Live View Feature (Optional)
+
+The system includes an optional, on-demand live viewing feature. To use it, you must first set `enabled: true` in the `live_view` section of your `config.yaml`.
+
+The main `biocoder-edge` application must be running for this feature to work.
+
+### Local Viewing (On the Jetson Desktop)
+
+This is useful for direct debugging. It reads the camera feed from the RAM disk.
+
+1.  Start the main application in one terminal: `python main.py`
+2.  Open a second terminal and run:
+    ```sh
+    python scripts/view_live_local.py
+    ```
+    A window will appear showing the live feed. Press 'q' to close it.
+
+### Remote Viewing (Over the Network)
+
+This runs a web server that streams the feed, allowing you to view it from a web browser on another computer.
+
+1.  Start the main application in one terminal: `python main.py`
+2.  Open a second terminal and run the stream server:
+    ```sh
+    python scripts/stream_server.py
+    ```
+3.  On any computer on the same network, open a web browser and navigate to `http://<JETSON_IP_ADDRESS>:8080`. For remote access from outside the local network, see documentation on setting up a VPN or a reverse SSH tunnel.
+
 ## System Architecture
 
 The application operates as a pipeline of three independent modules communicating through a data queue and the local filesystem.

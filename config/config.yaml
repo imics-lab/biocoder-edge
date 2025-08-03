@@ -117,3 +117,19 @@ uploader:
     # The password for the database user.
     # For production, consider using more secure methods like environment variables.
     password: "yolo_pass"
+
+# =============================================================================
+# Live View Configuration (Optional)
+# =============================================================================
+live_view:
+  # Set to true to enable the live view functionality. The MotionDetector will
+  # check for the lock file and write frames if it exists.
+  enabled: true
+  
+  # The path on the RAM disk where the latest frame will be written as a JPEG.
+  # /dev/shm is a standard RAM disk on most Linux systems.
+  ram_disk_path: "/dev/shm/live_frame.jpg"
+  
+  # The path to the lock file that signals an active viewer.
+  # The stream_server.py will create and delete this file.
+  lock_file_path: "/dev/shm/viewer_active.lock"

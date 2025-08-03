@@ -1,5 +1,6 @@
 import cv2
 import time
+import os
 from multiprocessing import Queue
 from typing import Dict, Optional, List
 import numpy as np
@@ -27,6 +28,14 @@ class MotionDetector:
         
         # Kernel size for Gaussian blur - must be odd
         self.blur_kernel = tuple(self.config.get('blur_kernel_size', [21,21]))
+        
+        # --- Live View Configuration ---
+        live_view_config = config.get('live_view', {})
+        self.live_view_enabled = live_view_config.get('enabled', False)
+        if self.live_view_enabled:
+            self.live_frame_path = live_view_config.get('ram_disk_path')
+            self.lock_file_path = live_view_config.get('lock_file_path')
+            print(f"Live view enabled. Will write to {self.live_frame_path} when lock file is present.")
         
         # --- Initialize components ---
         self.video_source = video_source
@@ -100,6 +109,13 @@ class MotionDetector:
         while self.is_running:
             # 1. Read a frame from the camera
             ret, original_frame = self.camera.read()
+            
+            # --- Live View Frame Writing (On-Demand) ---
+            # If the feature is enabled and the lock file exists, it means a viewer
+            # is active. Write the latest frame to the RAM disk for consumption.
+            if self.live_view_enabled and os.path.exists(self.lock_file_path):
+                # Quality can be adjusted (0-100). 90 is a good balance.
+                cv2.imwrite(self.live_frame_path, original_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
             
             if not ret:
                 if isinstance(self.video_source, str):
