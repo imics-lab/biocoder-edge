@@ -29,11 +29,11 @@ motion_detector:
 # =============================================================================
 animal_analyzer:
 
-  device_id: "Himson's Macbook Air"
+  device_id: "YOUR_DEVICE_ID"
 
   location:
-    latitude:  12.345678    # test val
-    longitude: 98.765432    # test val
+    latitude:  YOUR_LATITUDE    # Replace with your actual latitude
+    longitude: YOUR_LONGITUDE   # Replace with your actual longitude
 
   output_fps: 30.0  # The FPS for output video files. Adjust based on your needs.
 
@@ -81,42 +81,42 @@ uploader:
   # --- SFTP Server Configuration (for file transfer) ---
   sftp:
     # IP address or hostname of your remote cloud server.
-    host: "20.14.93.39"
+    host: "YOUR_SFTP_HOST"
     
     # SFTP port number (usually 22).
     port: 22
     
     # The username for the SFTP connection.
-    username: "imics"
+    username: "YOUR_SFTP_USERNAME"
     
     # The absolute path to the private SSH key for passwordless authentication.
     # Highly recommended over using passwords.
-    ssh_key_path: "/Users/himsonchapagain/.ssh/azure_vm2_key"
+    ssh_key_path: "/path/to/your/ssh/private/key"
     
     # The absolute path on the remote server where video files should be stored.
     # The SFTP user must have write permissions to this directory.
-    remote_video_dir: "/home/imics/data/Yolo-Gpu-2/app/uploads/incoming"
+    remote_video_dir: "/path/to/remote/video/directory"
     
     # The absolute path on the remote server where JSON metadata files should be stored.
-    remote_json_dir: "/home/imics/data/Yolo-Gpu-2/app/uploads/incoming/detections"
+    remote_json_dir: "/path/to/remote/json/directory"
 
   # --- PostgreSQL Database Configuration ---
   database:
     # IP address or hostname of your database server. Can be the same as SFTP host.
-    host: "127.0.0.1"
+    host: "YOUR_DB_HOST"
     
     # PostgreSQL port number (usually 5432).
     port: 5432
     
     # The name of the database to connect to.
-    dbname: "yolo_db"
+    dbname: "YOUR_DATABASE_NAME"
     
     # The username for the database connection.
-    user: "yolo_user"
+    user: "YOUR_DB_USERNAME"
     
     # The password for the database user.
     # For production, consider using more secure methods like environment variables.
-    password: "yolo_pass"
+    password: "YOUR_DB_PASSWORD"
 
 # =============================================================================
 # Live View Configuration (Optional)
