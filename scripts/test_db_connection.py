@@ -2,6 +2,11 @@ import yaml
 import sys
 import argparse
 import psycopg2
+from dotenv import load_dotenv
+import os
+import re
+
+load_dotenv()
 
 # This script is in the 'scripts/' directory. We don't need to adjust the Python
 # path because we are not importing from 'src/'. We just need to make sure
@@ -9,17 +14,25 @@ import psycopg2
 
 def load_config(config_path="config/config.yaml"):
     """
-    Loads the YAML configuration file from the project root.
-
-    Args:
-        config_path (str): The path to the configuration file.
-
-    Returns:
-        dict: The configuration dictionary.
+    Loads a YAML config file, manually expanding environment variables.
     """
+    # Pattern to find all ${VAR_NAME} occurrences
+    pattern = re.compile(r'\$\{(\w+)\}')
     try:
         with open(config_path, 'r') as f:
-            return yaml.safe_load(f)
+            raw_config_string = f.read()
+
+        # This function looks up the env var for each match
+        def replace_with_env(match):
+            var_name = match.group(1)
+            return os.environ.get(var_name, f'${{{var_name}}}') # Keep placeholder if var not found
+
+        # Substitute all placeholders
+        populated_config_string = pattern.sub(replace_with_env, raw_config_string)
+
+        # Load the now-populated string as YAML
+        return yaml.safe_load(populated_config_string)
+        
     except FileNotFoundError:
         print(f"Error: Configuration file not found at {config_path}")
         print("Please ensure you are running this script from the project's root directory.")
@@ -27,7 +40,7 @@ def load_config(config_path="config/config.yaml"):
     except yaml.YAMLError as e:
         print(f"Error parsing configuration file: {e}")
         sys.exit(1)
-
+        
 def main():
     """
     Main function to test the PostgreSQL database connection.

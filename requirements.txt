@@ -27,3 +27,5 @@ PyYAML              # For parsing the config.yaml file.
 
 # Web server for the optional remote live stream
 Flask
+
+python-dotenv

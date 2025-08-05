@@ -2,6 +2,11 @@ import yaml
 import argparse
 import sys
 import os
+from dotenv import load_dotenv
+import os
+import re
+
+load_dotenv()
 
 # Adjust the Python path to import from the 'src' directory
 # Get the directory of this script and add the parent directory (project root) to the path
@@ -12,10 +17,26 @@ sys.path.insert(0, project_root)
 from src.motion_detector.detector import MotionDetector
 
 def load_config(config_path="config/config.yaml"):
-    """Loads the YAML configuration file."""
+    """
+    Loads a YAML config file, manually expanding environment variables.
+    """
+    # Pattern to find all ${VAR_NAME} occurrences
+    pattern = re.compile(r'\$\{(\w+)\}')
     try:
         with open(config_path, 'r') as f:
-            return yaml.safe_load(f)
+            raw_config_string = f.read()
+
+        # This function looks up the env var for each match
+        def replace_with_env(match):
+            var_name = match.group(1)
+            return os.environ.get(var_name, f'${{{var_name}}}') # Keep placeholder if var not found
+
+        # Substitute all placeholders
+        populated_config_string = pattern.sub(replace_with_env, raw_config_string)
+
+        # Load the now-populated string as YAML
+        return yaml.safe_load(populated_config_string)
+        
     except FileNotFoundError:
         print(f"Error: Configuration file not found at {config_path}")
         print("Please ensure you are running this script from the project's root directory.")

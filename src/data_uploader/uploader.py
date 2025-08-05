@@ -5,6 +5,10 @@ import shutil
 import psycopg2
 import paramiko
 from typing import Dict, Tuple
+from dotenv import load_dotenv
+import re
+
+load_dotenv()
 
 class DataUploader:
     """

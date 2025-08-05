@@ -4,6 +4,10 @@ import os
 from multiprocessing import Queue
 from typing import Dict, Optional, List
 import numpy as np
+from dotenv import load_dotenv
+import re
+
+load_dotenv()
 
 class MotionDetector:
     """

@@ -10,6 +10,10 @@ from typing import Dict, List, Tuple
 from scipy.spatial import distance as dist
 from ultralytics import YOLO
 from collections import Counter
+from dotenv import load_dotenv
+import re
+
+load_dotenv()
 
 class AnimalAnalyzer:
     """
