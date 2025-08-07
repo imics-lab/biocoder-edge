@@ -4,10 +4,6 @@ import os
 from multiprocessing import Queue
 from typing import Dict, Optional, List
 import numpy as np
-from dotenv import load_dotenv
-import re
-
-load_dotenv()
 
 class MotionDetector:
     """
@@ -121,8 +117,8 @@ class MotionDetector:
                 # Resize frame to half size horizontally and vertically
                 height, width = original_frame.shape[:2]
                 resized_frame = cv2.resize(original_frame, (width // 2, height // 2), interpolation=cv2.INTER_AREA)
-                # Quality can be adjusted (0-100). 90 is a good balance.
-                cv2.imwrite(self.live_frame_path, resized_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 50])
+                
+                cv2.imwrite(self.live_frame_path, resized_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
             
             if not ret:
                 if isinstance(self.video_source, str):
