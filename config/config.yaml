@@ -133,3 +133,22 @@ live_view:
   # The path to the lock file that signals an active viewer.
   # The stream_server.py will create and delete this file.
   lock_file_path: "/dev/shm/viewer_active.lock"
+
+  # JPEG quality for live view frames (0-100). Lower = smaller size.
+  jpeg_quality: 60
+
+  # Target frames-per-second for the stream server.
+  target_fps: 15
+
+  # Minimum FPS when network resilience backoff reduces rate.
+  min_fps: 5
+
+  # Maximum simultaneous viewers allowed. Excess viewers receive 503.
+  max_viewers: 3
+
+  # If the stream server dies and leaves the lock file behind, the detector will
+  # stop writing frames when the lock file mtime is older than this threshold.
+  lock_stale_timeout_seconds: 2.0
+
+  # How often the stream server should refresh the lock file mtime (seconds).
+  lock_heartbeat_seconds: 0.5

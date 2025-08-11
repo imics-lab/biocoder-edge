@@ -35,6 +35,8 @@ class MotionDetector:
         if self.live_view_enabled:
             self.live_frame_path = live_view_config.get('ram_disk_path')
             self.lock_file_path = live_view_config.get('lock_file_path')
+            self.lock_stale_timeout_seconds = float(live_view_config.get('lock_stale_timeout_seconds', 2.0))
+            self.jpeg_quality = int(live_view_config.get('jpeg_quality', 60))
             print(f"Live view enabled. Will write to {self.live_frame_path} when lock file is present.")
         
         # --- Initialize components ---
@@ -113,12 +115,48 @@ class MotionDetector:
             # --- Live View Frame Writing (On-Demand) ---
             # If the feature is enabled and the lock file exists, it means a viewer
             # is active. Write the latest frame to the RAM disk for consumption.
+            should_write_live = False
             if self.live_view_enabled and os.path.exists(self.lock_file_path):
+                try:
+                    mtime = os.path.getmtime(self.lock_file_path)
+                    if (time.time() - mtime) <= self.lock_stale_timeout_seconds:
+                        should_write_live = True
+                except Exception:
+                    should_write_live = False
+
+            if should_write_live:
                 # Resize frame to half size horizontally and vertically
                 height, width = original_frame.shape[:2]
-                resized_frame = cv2.resize(original_frame, (width // 2, height // 2), interpolation=cv2.INTER_AREA)
-                
-                cv2.imwrite(self.live_frame_path, resized_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+                resized_frame = cv2.resize(
+                    original_frame,
+                    (width // 2, height // 2),
+                    interpolation=cv2.INTER_AREA,
+                )
+
+                # Encode and atomically replace to avoid readers seeing partial writes
+                ok, buffer = cv2.imencode(
+                    ".jpg",
+                    resized_frame,
+                    [int(cv2.IMWRITE_JPEG_QUALITY), self.jpeg_quality],
+                )
+                if ok:
+                    tmp_path = f"{self.live_frame_path}.tmp"
+                    try:
+                        with open(tmp_path, "wb") as tmp_file:
+                            tmp_file.write(buffer.tobytes())
+                            tmp_file.flush()
+                            os.fsync(tmp_file.fileno())
+                        os.replace(tmp_path, self.live_frame_path)
+                    except Exception:
+                        # If atomic replace fails for any reason, best-effort fallback
+                        try:
+                            cv2.imwrite(
+                                self.live_frame_path,
+                                resized_frame,
+                                [int(cv2.IMWRITE_JPEG_QUALITY), self.jpeg_quality],
+                            )
+                        except Exception:
+                            pass
             
             if not ret:
                 if isinstance(self.video_source, str):
