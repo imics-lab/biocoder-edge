@@ -129,11 +129,11 @@ class AnimalAnalyzer:
             event_end_time = time.time()
             print(f"Event {event_id} finished. Finalizing...")
 
-            if ram_buffer:
+            if significant_event_detected and ram_buffer:
                 temp_path = self._write_video_part(event_id, ram_buffer, len(temp_file_parts))
                 if temp_path:
                     temp_file_parts.append(temp_path)
-                ram_buffer.clear()
+            ram_buffer.clear()
 
             if significant_event_detected and temp_file_parts:
                 print(f"Significant event! Packaging video and metadata for {event_id}.")
