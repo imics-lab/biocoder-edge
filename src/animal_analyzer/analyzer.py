@@ -139,10 +139,29 @@ class AnimalAnalyzer:
                 print(f"Significant event! Packaging video and metadata for {event_id}.")
                 final_video_path = self._concatenate_parts(event_id, temp_file_parts)
                 if final_video_path:
-                    self._create_json_metadata(event_id, final_video_path, all_confirmed_detections, event_start_time, event_end_time)
+                    actual_duration = self._get_video_duration(final_video_path)
+                    self._create_json_metadata(event_id, final_video_path, all_confirmed_detections, event_start_time, event_end_time, actual_duration)
             else:
                 print(f"Insignificant event or no frames. Cleaning up temporary files for {event_id}.")
                 self._cleanup_temp_files(temp_file_parts)
+    
+    def _get_video_duration(self, video_path: str) -> float:
+        """Calculates the precise duration of a video file."""
+        try:
+            cap = cv2.VideoCapture(video_path)
+            if not cap.isOpened():
+                return 0.0
+            
+            frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            cap.release()
+            
+            if fps > 0:
+                return frame_count / fps
+            return 0.0
+        except Exception as e:
+            print(f"Could not calculate video duration for {video_path}: {e}")
+            return 0.0
 
     def _parse_yolo_results(self, results) -> List[Dict]:
         """Parses the output from the YOLO model into a standardized list of dicts."""
@@ -284,7 +303,7 @@ class AnimalAnalyzer:
             os.remove(file_list_path)
             return ""
 
-    def _create_json_metadata(self, event_id: str, video_path: str, detections: List, start_time: float, end_time: float) -> None:
+    def _create_json_metadata(self, event_id: str, video_path: str, detections: List, start_time: float, end_time: float, actual_duration: float) -> None:
         species_counts = Counter(d['label'] for d in detections)
         unique_species = list(species_counts.keys())
         if species_counts:
@@ -301,7 +320,7 @@ class AnimalAnalyzer:
             "timestamp_start_utc": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(start_time)),
             "timestamp_end_utc": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(end_time)),
             "local_video_path": video_path,
-            "video_duration_seconds": round(end_time - start_time, 2),
+            "video_duration_seconds": round(actual_duration, 2),
             "event_summary": {
                 "species_list": unique_species,
                 "primary_species": primary,

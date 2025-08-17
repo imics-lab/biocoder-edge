@@ -130,7 +130,7 @@ def index():
       <head><title>BioCoder-Edge Live Stream</title></head>
       <body>
         <h1>Live Camera Feed</h1>
-        <img src="/video_feed" width="480">
+        <img src="/video_feed" width="800">
       </body>
     </html>
     """
