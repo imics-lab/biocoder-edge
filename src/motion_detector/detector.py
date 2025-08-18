@@ -46,11 +46,46 @@ class MotionDetector:
         # Initialize the background subtractor.
         # `detectShadows=True` is crucial for outdoor settings to help filter out shadows.
         self.bg_subtractor = None
+        self.bg_knn = None
         
         self.is_running = False
         self.queue = None
         self.debug_mode = debug_mode
         self.frame_delay = 0
+
+        # --- ROI (keep only bottom region) ---
+        self.roi_bottom_ratio = float(self.config.get("roi_bottom_ratio", 0.65))
+        self._roi_mask: Optional[np.ndarray] = None  # set after first preprocess
+
+        # --- Energy gate (EMA background) + freeze window ---
+        self.accum_bg: Optional[np.ndarray] = None
+        self.accum_alpha = float(self.config.get("accum_alpha", 0.015))
+        self.energy_threshold = int(self.config.get("energy_threshold", 10))
+        self.hint_area_px = int(self.config.get("hint_area_px", 800))
+        self.bg_freeze_frames = 0
+        self.bg_freeze_after_hint = int(self.config.get("bg_freeze_after_hint_frames", 120))
+
+        # --- Background models: MOG2 (required) + optional KNN ---
+        self.use_knn = bool(self.config.get("use_knn", False))
+        if self.use_knn:
+            self.bg_knn = cv2.createBackgroundSubtractorKNN(
+                history=300, dist2Threshold=400.0, detectShadows=True
+            )
+
+        # --- Temporal persistence (debounce + slow-motion rescue) ---
+        self.persist_decay = float(self.config.get("persist_decay", 0.90))
+        self.persist_thresh = float(self.config.get("persist_thresh", 1.8))
+        self._persist_heat: Optional[np.ndarray] = None
+
+        # --- Morphology kernels (prebuilt; avoid per-frame alloc) ---
+        self.se_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        self.se_open = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+
+        # --- Binary median (integral image) ---
+        self.median_kernel = int(self.config.get("binary_median_kernel", 13))
+
+
+
         
     def start(self, shared_queue: Optional[Queue] = None) -> None:
         """
@@ -178,16 +213,27 @@ class MotionDetector:
             
             consecutive_failures = 0
 
-            # 2. Pre-process the frame for motion analysis
+            # 2 Pre-process (resize → gray → blur)
             processed_frame = self._preprocess_frame(original_frame)
 
-            # 3. Apply background subtraction to get a motion mask
-            fg_mask = self.bg_subtractor.apply(processed_frame)
+            # Initialize ROI mask if first frame
+            if self._roi_mask is None:
+                self._init_roi_mask(processed_frame.shape)
 
-            # 4. Clean the mask to remove noise
-            cleaned_mask = self._clean_mask(fg_mask)
+            # 3 Energy gate (EMA background) + optional freeze of learning
+            energy_mask = self._compute_energy_mask(processed_frame, state)
 
-            # 5. Find contours and check for significant motion
+            # 4 Background subtraction (MOG2 + optional KNN), gated by energy + ROI
+            fg_mask0 = self._apply_background_models(processed_frame, state)
+            fg_mask0 = (fg_mask0 & energy_mask).astype(np.uint8)
+
+            # 5 Temporal persistence (debounce slow/partial motion)
+            stable_u8 = self._apply_persistence(fg_mask0)
+
+            # 6 Clean mask (binary 'median' via integral image + morphology)
+            cleaned_mask = self._clean_motion_mask(stable_u8)
+
+            # 7 Contours (area + min w/h + solidity gate)
             significant_contours = self._find_significant_contours(cleaned_mask)
             motion_found_this_frame = len(significant_contours) > 0
 
@@ -248,6 +294,87 @@ class MotionDetector:
         
         return blurred
 
+    def _init_roi_mask(self, proc_shape: tuple) -> None:
+        """Create a binary ROI mask that keeps bottom roi_bottom_ratio of the frame."""
+        h_d, w_d = proc_shape
+        self._roi_mask = np.zeros((h_d, w_d), np.uint8)
+        top = int((1.0 - self.roi_bottom_ratio) * h_d)
+        self._roi_mask[top:, :] = 1
+
+    def _compute_energy_mask(self, processed_frame: np.ndarray, state: str) -> np.ndarray:
+        """
+        Maintain a slow EMA background and produce a robust 'energy' mask of true scene change.
+        Freeze learning for a short window when large changes occur.
+        """
+        if self.accum_bg is None:
+            self.accum_bg = processed_frame.astype(np.float32)
+
+        # Update EMA only when not frozen and IDLE
+        if self.bg_freeze_frames == 0 and state == "IDLE":
+            cv2.accumulateWeighted(processed_frame.astype(np.float32), self.accum_bg, self.accum_alpha)
+
+        bg_img = self.accum_bg.astype(np.uint8)
+        diff_u8 = cv2.absdiff(processed_frame, bg_img)
+
+        # Cheap, robust energy mask in {0,1}
+        _, energy01 = cv2.threshold(diff_u8, self.energy_threshold, 1, cv2.THRESH_BINARY)
+        energy01 = cv2.medianBlur((energy01 * 255).astype(np.uint8), 3) // 255
+
+        # Constrain to ROI
+        energy01 = (energy01 & self._roi_mask).astype(np.uint8)
+
+        # Freeze learning if large area is energized
+        if int(np.sum(energy01)) >= self.hint_area_px:
+            self.bg_freeze_frames = max(self.bg_freeze_frames, self.bg_freeze_after_hint)
+
+        # Decay the freeze window
+        if self.bg_freeze_frames > 0:
+            self.bg_freeze_frames -= 1
+
+        return energy01
+
+    def _apply_background_models(self, processed_frame: np.ndarray, state: str) -> np.ndarray:
+        """
+        Apply MOG2 (+ optional KNN) with a learning rate that respects freeze/DETECTING states.
+        Returns a binary {0,1} foreground mask.
+        """
+        # Learning rate: pause during freeze or while detecting to avoid absorbing objects
+        lr_bg = 0.0 if (self.bg_freeze_frames > 0 or state == "DETECTING") else 0.01
+
+        mog2_raw = self.bg_subtractor.apply(processed_frame, learningRate=lr_bg)
+        mog2_fg = (mog2_raw >= 200).astype(np.uint8)
+
+        if self.use_knn and self.bg_knn is not None:
+            knn_raw = self.bg_knn.apply(processed_frame, learningRate=lr_bg)
+            knn_fg = (knn_raw >= 200).astype(np.uint8)
+            return np.bitwise_or(mog2_fg, knn_fg).astype(np.uint8)
+
+        return mog2_fg
+
+    def _apply_persistence(self, fg01: np.ndarray) -> np.ndarray:
+        """
+        Temporal persistence: decays a heat map and keeps motion alive across frames.
+        Input/Output are {0,1} → returns {0,255} u8 mask.
+        """
+        if self._persist_heat is None:
+            self._persist_heat = np.zeros_like(fg01, dtype=np.float32)
+
+        self._persist_heat = self._persist_heat * self.persist_decay + fg01.astype(np.float32)
+        stable01 = (self._persist_heat >= self.persist_thresh).astype(np.uint8)
+        return (stable01 * 255).astype(np.uint8)
+
+    def _clean_motion_mask(self, mask_u8: np.ndarray) -> np.ndarray:
+        """
+        Clean a binary {0,255} mask:
+        1) integral-image 'binary median' (box majority),
+        2) close (fill gaps),
+        3) open (remove specks).
+        """
+        k = max(11, self.median_kernel)
+        cleaned = self._binary_median_integral(mask_u8, k=k)
+        cleaned = cv2.morphologyEx(cleaned, cv2.MORPH_CLOSE, self.se_close, iterations=2)
+        cleaned = cv2.morphologyEx(cleaned, cv2.MORPH_OPEN, self.se_open, iterations=1)
+        return cleaned
 
     def _clean_mask(self, mask: np.ndarray) -> np.ndarray:
         """Applies thresholding and morphological operations to a mask."""
@@ -268,19 +395,65 @@ class MotionDetector:
 
 
     def _find_significant_contours(self, mask: np.ndarray) -> List:
-        """Finds contours and returns a list of those large enough to be significant."""
-        # Find the outlines (contours) of all white objects in the mask
+        """
+        Find contours on a binary {0,255} mask and keep only solid-enough blobs.
+        Adds min width/height and solidity checks to drop skinny grass blades.
+        """
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
-        significant_contours = []
-        for contour in contours:
-            # If the area of a contour is less than our minimum, ignore it
-            if cv2.contourArea(contour) < self.min_area:
+
+        significant = []
+        # Minimum dims at detection scale (tune for motion_frame_width)
+        min_w = max(8, int(self.motion_frame_width * 0.01))   # ~1% of width
+        min_h = max(8, int(self.motion_frame_width * 0.006))  # ~0.6% of width
+
+        for c in contours:
+            area = cv2.contourArea(c)
+            if area < self.min_area:
                 continue
-            
-            significant_contours.append(contour)
-            
-        return significant_contours
+
+            x, y, w, h = cv2.boundingRect(c)
+            if w < min_w or h < min_h:
+                continue
+
+            hull = cv2.convexHull(c)
+            hull_area = cv2.contourArea(hull)
+            if hull_area <= 1.0:
+                continue
+
+            solidity = float(area) / hull_area
+            if solidity < 0.45:  # drop ultra-stringy shapes
+                continue
+
+            significant.append(c)
+
+        return significant
+
+    def _binary_median_integral(self, mask_u8: np.ndarray, k: int = 11) -> np.ndarray:
+        """
+        Fast binary 'median' via integral image (box majority).
+        Input: {0,255}. Output: {0,255}. Window size k must be odd.
+        """
+        if k % 2 == 0:
+            k += 1
+
+        m = (mask_u8 > 0).astype(np.uint8)  # {0,1}
+        h, w = m.shape
+        I = cv2.integral(m, sdepth=cv2.CV_32S)  # shape (h+1, w+1)
+
+        r = k // 2
+        y0 = np.clip(np.arange(h) - r, 0, h)
+        y1 = np.clip(np.arange(h) + r + 1, 0, h)
+        x0 = np.clip(np.arange(w) - r, 0, w)
+        x1 = np.clip(np.arange(w) + r + 1, 0, w)
+
+        Y0, X0 = np.meshgrid(y0, x0, indexing="ij")
+        Y1, X1 = np.meshgrid(y1, x1, indexing="ij")
+
+        S = I[Y1, X1] - I[Y0, X1] - I[Y1, X0] + I[Y0, X0]
+        area = (Y1 - Y0) * (X1 - X0)
+        out01 = (S * 2 >= area).astype(np.uint8)
+
+        return (out01 * 255).astype(np.uint8)
 
 
     def _show_debug_window(self, frame: np.ndarray, mask: np.ndarray, contours: List, state: str, last_motion_time: float) -> None:
