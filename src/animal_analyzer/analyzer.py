@@ -317,8 +317,8 @@ class AnimalAnalyzer:
                 "latitude": self.location['latitude'],
                 "longitude": self.location['longitude']
             },
-            "timestamp_start_utc": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(start_time)),
-            "timestamp_end_utc": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(end_time)),
+            "timestamp_start_utc": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time)),
+            "timestamp_end_utc": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(end_time)),
             "local_video_path": video_path,
             "video_duration_seconds": round(actual_duration, 2),
             "event_summary": {
