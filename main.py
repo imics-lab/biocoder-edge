@@ -2,6 +2,7 @@
 
 import yaml
 import time
+import multiprocessing
 from multiprocessing import Process, Queue
 import sys
 import argparse
@@ -35,7 +36,6 @@ def main():
     """
     The main entry point for the BioCoder-Edge application.
     """
-    # --- NEW: Add argument parsing ---
     parser = argparse.ArgumentParser(description="Run the BioCoder-Edge application.")
     parser.add_argument(
         '--video',
@@ -67,6 +67,7 @@ def main():
 
     # 4. Create a process for each module.
     #    The 'target' is the 'start' method of each class instance.
+    multiprocessing.set_start_method('spawn', force=True)
     processes = [
         Process(target=motion_detector.start, args=(frame_queue,)),
         Process(target=animal_analyzer.start),
