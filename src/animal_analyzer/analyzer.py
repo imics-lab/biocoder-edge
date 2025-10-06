@@ -57,35 +57,23 @@ class AnimalAnalyzer:
         )
         self.logger = logging.getLogger('AnimalAnalyzer')
         
-        # --- PyTorch/CUDA Diagnostics ---
-        try:
-            self.logger.info(f"--- PyTorch/CUDA Diagnostics ---")
-            self.logger.info(f"PyTorch version: {torch.__version__}")
-            self.logger.info(f"CUDA available: {torch.cuda.is_available()}")
-            if torch.cuda.is_available():
-                self.logger.info(f"CUDA device count: {torch.cuda.device_count()}")
-                self.logger.info(f"CUDA current device: {torch.cuda.current_device()}")
-                self.logger.info(f"CUDA device name: {torch.cuda.get_device_name(0)}")
-                self.logger.info(f"cuDNN version: {torch.backends.cudnn.version()}")
-                self.logger.info(f"Is cuDNN enabled: {torch.backends.cudnn.enabled}")
-            self.logger.info(f"------------------------------------")
-        except Exception as e:
-            self.logger.error(f"Error during PyTorch/CUDA diagnostics: {e}", exc_info=True)
-
-        # On platforms like Jetson, the CUDA context must be initialized inside
-        # the spawned process before use. A simple way is to create a dummy tensor.
-        if torch.cuda.is_available():
-            self.logger.info("CUDA is available. Initializing context...")
-            try:
-                _ = torch.tensor([1.0]).cuda()
-                self.logger.info("CUDA context initialized successfully.")
-            except Exception as e:
-                self.logger.error(f"Failed to initialize CUDA context: {e}", exc_info=True)
-        
         # Load YOLO model in child process (required for 'spawn' start method)
         self.logger.info("Loading YOLO model in child process...")
         self.model = YOLO(self.config['yolo_model_path'])
         self.logger.info("YOLO model loaded successfully.")
+
+        # Explicitly warm up the model to initialize all CUDA components before
+        # the main loop starts. This can help prevent context issues in spawned processes.
+        if torch.cuda.is_available():
+            self.logger.info("Warming up YOLO model on GPU...")
+            try:
+                # The YOLO object does not have a public 'warmup' method.
+                # Calling predict() on a dummy image achieves the same goal: it initializes
+                # the CUDA context and backend engines before the main loop starts.
+                _ = self.model.predict(source=np.zeros((480, 640, 3), dtype=np.uint8), verbose=False)
+                self.logger.info("YOLO model warmed up successfully.")
+            except Exception as e:
+                self.logger.error(f"Error during YOLO model warmup: {e}", exc_info=True)
         
         if self.is_running:
             self.logger.warning("Animal analyzer is already running.")
