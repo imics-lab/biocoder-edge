@@ -57,6 +57,21 @@ class AnimalAnalyzer:
         )
         self.logger = logging.getLogger('AnimalAnalyzer')
         
+        # --- PyTorch/CUDA Diagnostics ---
+        try:
+            self.logger.info(f"--- PyTorch/CUDA Diagnostics ---")
+            self.logger.info(f"PyTorch version: {torch.__version__}")
+            self.logger.info(f"CUDA available: {torch.cuda.is_available()}")
+            if torch.cuda.is_available():
+                self.logger.info(f"CUDA device count: {torch.cuda.device_count()}")
+                self.logger.info(f"CUDA current device: {torch.cuda.current_device()}")
+                self.logger.info(f"CUDA device name: {torch.cuda.get_device_name(0)}")
+                self.logger.info(f"cuDNN version: {torch.backends.cudnn.version()}")
+                self.logger.info(f"Is cuDNN enabled: {torch.backends.cudnn.enabled}")
+            self.logger.info(f"------------------------------------")
+        except Exception as e:
+            self.logger.error(f"Error during PyTorch/CUDA diagnostics: {e}", exc_info=True)
+
         # On platforms like Jetson, the CUDA context must be initialized inside
         # the spawned process before use. A simple way is to create a dummy tensor.
         if torch.cuda.is_available():
