@@ -26,6 +26,10 @@ class DataUploader:
 
     def start(self) -> None:
         """Starts the main uploader loop."""
+        if not self.config.get('enabled', True):
+            print("Data uploader is disabled in configuration. Files will remain in pending_upload folder.")
+            return
+        
         if self.is_running:
             print("Data uploader is already running.")
             return

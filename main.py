@@ -40,23 +40,29 @@ def main():
     parser.add_argument(
         '--video',
         type=str,
-        default=0,
-        help="Path to a video file to use as input. Defaults to camera index 0."
+        default=None,
+        help="Path to a video file to use as input. Overrides config file setting."
     )
     args = parser.parse_args()
-    video_source = args.video if args.video == 0 else str(args.video)
 
     print("--- BioCoder-Edge Application Starting ---")
-    print(f"Using video source: {video_source}")
 
     # 1. Load configuration from the YAML file
     config = load_config()
 
-    # 2. Create the shared queue for communication between the
+    # 2. Determine video source: command-line arg overrides config
+    if args.video is not None:
+        video_source = args.video
+    else:
+        video_source = config.get('motion_detector', {}).get('video_source', 0)
+    
+    print(f"Using video source: {video_source}")
+
+    # 3. Create the shared queue for communication between the
     #    MotionDetector and the AnimalAnalyzer.
     frame_queue = Queue()
 
-    # 3. Instantiate the main module classes
+    # 4. Instantiate the main module classes
     try:
         motion_detector = MotionDetector(config, video_source=video_source)
         animal_analyzer = AnimalAnalyzer(frame_queue, config)
@@ -65,7 +71,7 @@ def main():
         print(f"Error: A required key is missing from the configuration file: {e}")
         sys.exit(1)
 
-    # 4. Create a process for each module.
+    # 5. Create a process for each module.
     #    The 'target' is the 'start' method of each class instance.
     multiprocessing.set_start_method('spawn', force=True)
     processes = [
@@ -75,7 +81,7 @@ def main():
     ]
 
     try:
-        # 5. Start all processes
+        # 6. Start all processes
         print("Starting all modules in separate processes...")
         for p in processes:
             p.start()
@@ -90,7 +96,7 @@ def main():
         print("\n--- Shutdown signal received (Ctrl+C) ---")
     
     finally:
-        # 7. Graceful shutdown procedure
+        # 8. Graceful shutdown procedure
         print("Initiating graceful shutdown of all modules...")
 
         # The order of shutdown can matter. It's often best to stop

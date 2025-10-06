@@ -10,6 +10,10 @@
 # =============================================================================
 motion_detector:
 
+  # The video source to use for motion detection.
+  # Can be a camera index (e.g., 0 for the first camera) or a path to a video file.
+  # Defaults to 0 if not specified.
+  video_source: 2
 
   blur_kernel_size: [21, 21]
   # The width (in pixels) to which frames are resized for motion analysis.
@@ -75,6 +79,11 @@ animal_analyzer:
 # Module C: Data Uploader Configuration
 # =============================================================================
 uploader:
+  # Enable or disable the data uploader.
+  # When set to false, captured videos and JSON files will remain in the pending_upload folder.
+  # When set to true, the uploader will attempt to upload files to the remote server.
+  enabled: false
+
   # The interval in seconds for the uploader to scan the pending directory for new files.
   scan_interval_seconds: 60 # (300 seconds = 5 minutes)
 
