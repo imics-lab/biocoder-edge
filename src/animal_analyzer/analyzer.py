@@ -57,23 +57,16 @@ class AnimalAnalyzer:
         )
         self.logger = logging.getLogger('AnimalAnalyzer')
         
+        # On Jetson with 'spawn', the cuDNN backend can be problematic.
+        # Disabling benchmark mode can force it to use a default, more reliable
+        # convolution algorithm instead of searching for the fastest one.
+        if torch.cuda.is_available():
+            torch.backends.cudnn.benchmark = False
+
         # Load YOLO model in child process (required for 'spawn' start method)
         self.logger.info("Loading YOLO model in child process...")
         self.model = YOLO(self.config['yolo_model_path'])
         self.logger.info("YOLO model loaded successfully.")
-
-        # Explicitly warm up the model to initialize all CUDA components before
-        # the main loop starts. This can help prevent context issues in spawned processes.
-        if torch.cuda.is_available():
-            self.logger.info("Warming up YOLO model on GPU...")
-            try:
-                # The YOLO object does not have a public 'warmup' method.
-                # Calling predict() on a dummy image achieves the same goal: it initializes
-                # the CUDA context and backend engines before the main loop starts.
-                _ = self.model.predict(source=np.zeros((480, 640, 3), dtype=np.uint8), verbose=False)
-                self.logger.info("YOLO model warmed up successfully.")
-            except Exception as e:
-                self.logger.error(f"Error during YOLO model warmup: {e}", exc_info=True)
         
         if self.is_running:
             self.logger.warning("Animal analyzer is already running.")
