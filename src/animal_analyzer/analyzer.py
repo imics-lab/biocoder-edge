@@ -58,10 +58,10 @@ class AnimalAnalyzer:
         self.logger = logging.getLogger('AnimalAnalyzer')
         
         # On Jetson with 'spawn', the cuDNN backend can be problematic.
-        # Disabling benchmark mode can force it to use a default, more reliable
-        # convolution algorithm instead of searching for the fastest one.
+        # Disabling it entirely forces PyTorch to use its own, more stable
+        # CUDA implementations for convolutions, which can prevent engine errors.
         if torch.cuda.is_available():
-            torch.backends.cudnn.benchmark = False
+            torch.backends.cudnn.enabled = False
 
         # Load YOLO model in child process (required for 'spawn' start method)
         self.logger.info("Loading YOLO model in child process...")
