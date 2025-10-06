@@ -13,7 +13,7 @@ motion_detector:
   # The video source to use for motion detection.
   # Can be a camera index (e.g., 0 for the first camera) or a path to a video file.
   # Defaults to 0 if not specified.
-  video_source: 2
+  video_source: 0
 
   blur_kernel_size: [21, 21]
   # The width (in pixels) to which frames are resized for motion analysis.
