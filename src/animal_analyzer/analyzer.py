@@ -11,6 +11,7 @@ from typing import Dict, List, Tuple
 from scipy.spatial import distance as dist
 from ultralytics import YOLO
 from collections import Counter
+import torch
 
 class AnimalAnalyzer:
     """
@@ -55,6 +56,16 @@ class AnimalAnalyzer:
             ]
         )
         self.logger = logging.getLogger('AnimalAnalyzer')
+        
+        # On platforms like Jetson, the CUDA context must be initialized inside
+        # the spawned process before use. A simple way is to create a dummy tensor.
+        if torch.cuda.is_available():
+            self.logger.info("CUDA is available. Initializing context...")
+            try:
+                _ = torch.tensor([1.0]).cuda()
+                self.logger.info("CUDA context initialized successfully.")
+            except Exception as e:
+                self.logger.error(f"Failed to initialize CUDA context: {e}", exc_info=True)
         
         # Load YOLO model in child process (required for 'spawn' start method)
         self.logger.info("Loading YOLO model in child process...")
