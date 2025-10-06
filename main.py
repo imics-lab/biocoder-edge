@@ -45,6 +45,9 @@ def main():
     )
     args = parser.parse_args()
 
+    multiprocessing.set_start_method('spawn', force=True)
+    ctx = multiprocessing.get_context('spawn')
+
     print("--- BioCoder-Edge Application Starting ---")
 
     # 1. Load configuration from the YAML file
@@ -60,7 +63,7 @@ def main():
 
     # 3. Create the shared queue for communication between the
     #    MotionDetector and the AnimalAnalyzer.
-    frame_queue = Queue()
+    frame_queue = ctx.Queue()
 
     # 4. Instantiate the main module classes
     try:
@@ -111,5 +114,4 @@ def main():
         print("--- BioCoder-Edge Application Shut Down ---")
 
 if __name__ == "__main__":
-    multiprocessing.set_start_method('spawn', force=True)
     main()
