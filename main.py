@@ -73,7 +73,6 @@ def main():
 
     # 5. Create a process for each module.
     #    The 'target' is the 'start' method of each class instance.
-    multiprocessing.set_start_method('spawn', force=True)
     processes = [
         Process(target=motion_detector.start, args=(frame_queue,)),
         Process(target=animal_analyzer.start),
@@ -112,4 +111,5 @@ def main():
         print("--- BioCoder-Edge Application Shut Down ---")
 
 if __name__ == "__main__":
+    multiprocessing.set_start_method('spawn', force=True)
     main()

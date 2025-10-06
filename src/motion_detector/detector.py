@@ -1,6 +1,7 @@
 import cv2
 import time
 import os
+import logging
 from multiprocessing import Queue
 from typing import Dict, Optional, List
 import numpy as np
@@ -58,37 +59,51 @@ class MotionDetector:
         This method will block until stop() is called or an error occurs.
         :param shared_queue: The multiprocessing.Queue to send frames to. Can be None in debug mode.
         """
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.FileHandler('logs/motion_detector.log'),
+                logging.StreamHandler()
+            ]
+        )
+        logger = logging.getLogger('MotionDetector')
+        
         if self.is_running:
-            print("Motion detector is already running.")
+            logger.warning("Motion detector is already running.")
             return
         
-         # 2. ADD camera initialization here. This now runs
-        #    inside the new process, avoiding the error.
-        print("Initializing video source...")
-        self.camera = cv2.VideoCapture(self.video_source)
-        if not self.camera.isOpened():
-            # You can decide how to handle this error. Raising it might
-            # not be visible, so printing and returning is safer.
-            print(f"FATAL: Cannot open video source: {self.video_source} in child process.")
-            return
-        
-        if isinstance(self.video_source, str):
-            fps = self.camera.get(cv2.CAP_PROP_FPS)
-            if fps > 0:
-                self.frame_delay = 1 / fps
-                print(f"Video file detected. Simulating FPS: {fps:.2f} (Delay: {self.frame_delay:.4f}s)")
-            else:
-                self.frame_delay = 1 / 30 # Default if FPS is not available
-                print(f"Video file detected, but FPS not readable. Defaulting to 30 FPS.")
-                
-        print("Video source initialized successfully.")
-        
-        self.bg_subtractor = cv2.createBackgroundSubtractorMOG2(history=500, varThreshold=50, detectShadows=True)
+        logger.info("Initializing video source: %s", self.video_source)
+        try:
+            self.camera = cv2.VideoCapture(self.video_source)
+            if not self.camera.isOpened():
+                logger.error("FATAL: Cannot open video source: %s in child process.", self.video_source)
+                return
             
-        self.queue = shared_queue
-        self.is_running = True
-        print("Starting Motion Detector processing loop...")
-        self._processing_loop()
+            logger.info("Video source opened successfully.")
+            
+            if isinstance(self.video_source, str):
+                fps = self.camera.get(cv2.CAP_PROP_FPS)
+                if fps > 0:
+                    self.frame_delay = 1 / fps
+                    logger.info("Video file detected. Simulating FPS: %.2f (Delay: %.4fs)", fps, self.frame_delay)
+                else:
+                    self.frame_delay = 1 / 30
+                    logger.warning("Video file detected, but FPS not readable. Defaulting to 30 FPS.")
+            else:
+                logger.info("Using camera device: %s", self.video_source)
+                    
+            logger.info("Video source initialized successfully.")
+            
+            self.bg_subtractor = cv2.createBackgroundSubtractorMOG2(history=500, varThreshold=50, detectShadows=True)
+                
+            self.queue = shared_queue
+            self.is_running = True
+            logger.info("Starting Motion Detector processing loop...")
+            self._processing_loop()
+            
+        except Exception as e:
+            logger.exception("Exception occurred during video source initialization: %s", e)
 
 
     def stop(self) -> None:
@@ -103,6 +118,7 @@ class MotionDetector:
         """
         The private method containing the main while loop for frame processing.
         """
+        logger = logging.getLogger('MotionDetector')
         state = "IDLE"
         last_motion_time = 0
         consecutive_failures = 0
@@ -160,17 +176,21 @@ class MotionDetector:
             
             if not ret:
                 if isinstance(self.video_source, str):
-                    print("End of video file reached. Finalizing event.")
-                    # If an event was in progress, send the final signal
+                    logger.info("End of video file reached. Finalizing event.")
                     if self.queue and state == "DETECTING":
                         self.queue.put(None)
-                    break # Exit the loop cleanly
+                    break
                 
                 consecutive_failures += 1
-                print(f"Failed to grab frame (attempt {consecutive_failures})")
+                logger.error("Failed to grab frame (attempt %d/%d)", consecutive_failures, max_failures)
+                
+                if self.camera.isOpened():
+                    logger.error("Camera is opened but failed to read frame.")
+                else:
+                    logger.error("Camera is no longer opened.")
             
                 if consecutive_failures >= max_failures:
-                    print("Maximum consecutive failures reached. Exiting loop.")
+                    logger.critical("Maximum consecutive failures reached. Exiting loop.")
                     break
             
                 time.sleep(0.1)
@@ -194,24 +214,19 @@ class MotionDetector:
             # 6. Implement the state machine logic
             if state == "IDLE":
                 if motion_found_this_frame:
-                    print("Motion detected! Changing to DETECTING state.")
+                    logger.info("Motion detected! Changing to DETECTING state.")
                     state = "DETECTING"
                     last_motion_time = time.time()
-                    # Put the first high-resolution frame into the queue if it exists
                     if self.queue: self.queue.put(original_frame)
             
             elif state == "DETECTING":
-                # When in the DETECTING state, always send the frame to the analyzer.
                 if self.queue: self.queue.put(original_frame)
 
-                # If motion is found in the current frame, reset the cooldown timer.
                 if motion_found_this_frame:
                     last_motion_time = time.time()
-                # If no motion is found, check if the cooldown period has expired.
                 else:
                     if time.time() - last_motion_time > self.cooldown:
-                        print(f"Cooldown of {self.cooldown}s expired. Event finished. Changing to IDLE state.")
-                        # Send the end-of-event signal and reset state.
+                        logger.info("Cooldown of %.1fs expired. Event finished. Changing to IDLE state.", self.cooldown)
                         if self.queue: self.queue.put(None)
                         state = "IDLE"
 
@@ -226,8 +241,10 @@ class MotionDetector:
                     self.is_running = False
         
         # --- Cleanup ---
-        print("Motion detector loop terminated. Releasing resources.")
-        self.camera.release()
+        logger.info("Motion detector loop terminated. Releasing resources.")
+        if self.camera is not None:
+            self.camera.release()
+            logger.info("Camera released successfully.")
         if self.debug_mode:
             cv2.destroyAllWindows()
 

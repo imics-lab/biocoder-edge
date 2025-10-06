@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import uuid
+import logging
 import numpy as np
 from multiprocessing import Queue
 from typing import Dict, List, Tuple
@@ -31,24 +32,40 @@ class AnimalAnalyzer:
         self.output_fps = self.config.get('output_fps', 30.0) 
         self.is_running = False
 
-        # --- Initialize YOLO Model ---
-        print("Loading YOLO model...")
-        self.model = YOLO(self.config['yolo_model_path'])
-        print("YOLO model loaded successfully.")
+        # YOLO model will be loaded in start() method (required for 'spawn' multiprocessing)
+        self.model = None
 
         # --- Ensure Directories Exist ---
         os.makedirs(self.config['output_pending_dir'], exist_ok=True)
         os.makedirs(self.config['output_temp_dir'], exist_ok=True)
         print(f"Output directories ensured at {self.config['output_pending_dir']} and {self.config['output_temp_dir']}")
+        
+        # Logger will be initialized in start() method
+        self.logger = None
 
 
     def start(self) -> None:
         """Starts the main event processing loop."""
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.FileHandler('logs/animal_analyzer.log'),
+                logging.StreamHandler()
+            ]
+        )
+        self.logger = logging.getLogger('AnimalAnalyzer')
+        
+        # Load YOLO model in child process (required for 'spawn' start method)
+        self.logger.info("Loading YOLO model in child process...")
+        self.model = YOLO(self.config['yolo_model_path'])
+        self.logger.info("YOLO model loaded successfully.")
+        
         if self.is_running:
-            print("Animal analyzer is already running.")
+            self.logger.warning("Animal analyzer is already running.")
             return
         self.is_running = True
-        print("Starting Animal Analyzer...")
+        self.logger.info("Starting Animal Analyzer...")
         self._event_loop()
 
 
@@ -61,7 +78,7 @@ class AnimalAnalyzer:
     def _event_loop(self) -> None:
         """The main loop that waits for and processes whole events."""
         while self.is_running:
-            print("Waiting for a new event...")
+            self.logger.info("Waiting for a new event...")
             first_frame = self.queue.get()
 
             if first_frame is None:
@@ -70,7 +87,7 @@ class AnimalAnalyzer:
             # --- A NEW EVENT HAS STARTED ---
             event_id = f"event_{time.strftime('%Y%m%d-%H%M%S')}_{str(uuid.uuid4())[:8]}"
             event_start_time = time.time()
-            print(f"New event received: {event_id}")
+            self.logger.info("New event received: %s", event_id)
 
             ram_buffer = [first_frame]
             temp_file_parts = []
@@ -103,7 +120,7 @@ class AnimalAnalyzer:
                     # Check if this object just became significant
                     if (obj_data['label'] in self.config['species_of_interest'] and
                         obj_data['frames_seen'] == self.config['event_confirmation_frames']):
-                        print(f"  > Confirmed significant object: {obj_data['label']} (ID: {obj_id})")
+                        self.logger.info("  > Confirmed significant object: %s (ID: %s)", obj_data['label'], obj_id)
                         significant_event_detected = True
 
                     # If the event is significant, log all new detections of tracked, interesting species
@@ -119,7 +136,7 @@ class AnimalAnalyzer:
 
                 # 4. HANDLE MEMORY MANAGEMENT (SPILL TO DISK)
                 if len(ram_buffer) >= self.config['ram_frame_limit']:
-                    print(f"RAM limit reached. Spilling {len(ram_buffer)} frames to disk...")
+                    self.logger.info("RAM limit reached. Spilling %d frames to disk...", len(ram_buffer))
                     temp_path = self._write_video_part(event_id, ram_buffer, len(temp_file_parts))
                     if temp_path:
                         temp_file_parts.append(temp_path)
@@ -127,7 +144,7 @@ class AnimalAnalyzer:
             
             # --- EVENT FINALIZATION ---
             event_end_time = time.time()
-            print(f"Event {event_id} finished. Finalizing...")
+            self.logger.info("Event %s finished. Finalizing...", event_id)
 
             if significant_event_detected and ram_buffer:
                 temp_path = self._write_video_part(event_id, ram_buffer, len(temp_file_parts))
@@ -136,13 +153,13 @@ class AnimalAnalyzer:
             ram_buffer.clear()
 
             if significant_event_detected and temp_file_parts:
-                print(f"Significant event! Packaging video and metadata for {event_id}.")
+                self.logger.info("Significant event! Packaging video and metadata for %s.", event_id)
                 final_video_path = self._concatenate_parts(event_id, temp_file_parts)
                 if final_video_path:
                     actual_duration = self._get_video_duration(final_video_path)
                     self._create_json_metadata(event_id, final_video_path, all_confirmed_detections, event_start_time, event_end_time, actual_duration)
             else:
-                print(f"Insignificant event or no frames. Cleaning up temporary files for {event_id}.")
+                self.logger.info("Insignificant event or no frames. Cleaning up temporary files for %s.", event_id)
                 self._cleanup_temp_files(temp_file_parts)
     
     def _get_video_duration(self, video_path: str) -> float:
@@ -160,7 +177,7 @@ class AnimalAnalyzer:
                 return frame_count / fps
             return 0.0
         except Exception as e:
-            print(f"Could not calculate video duration for {video_path}: {e}")
+            self.logger.error("Could not calculate video duration for %s: %s", video_path, e)
             return 0.0
 
     def _parse_yolo_results(self, results) -> List[Dict]:
@@ -273,7 +290,7 @@ class AnimalAnalyzer:
         out = cv2.VideoWriter(temp_path, fourcc, self.output_fps, (width, height))
         for frame in frames: out.write(frame)
         out.release()
-        print(f"  > Wrote {temp_path}")
+        self.logger.info("  > Wrote %s", temp_path)
         return temp_path
 
     def _concatenate_parts(self, event_id: str, temp_parts: List[str]) -> str:
@@ -292,13 +309,13 @@ class AnimalAnalyzer:
         final_video_path
     ]
         try:
-            print(f"Running FFmpeg to create {final_video_path}...")
+            self.logger.info("Running FFmpeg to create %s...", final_video_path)
             subprocess.run(command, check=True, capture_output=True, text=True)
             self._cleanup_temp_files(temp_parts)
             os.remove(file_list_path)
             return final_video_path
         except subprocess.CalledProcessError as e:
-            print(f"Error during FFmpeg concatenation: {e.stderr}")
+            self.logger.error("Error during FFmpeg concatenation: %s", e.stderr)
             self._cleanup_temp_files(temp_parts)
             os.remove(file_list_path)
             return ""
@@ -330,11 +347,11 @@ class AnimalAnalyzer:
         }
         json_path = os.path.join(self.config['output_pending_dir'], f"{event_id}.json")
         with open(json_path, 'w') as f: json.dump(metadata, f, indent=4)
-        print(f"  > Wrote JSON metadata to {json_path}")
+        self.logger.info("  > Wrote JSON metadata to %s", json_path)
 
     def _cleanup_temp_files(self, file_paths: List[str]) -> None:
         for path in file_paths:
             try:
                 os.remove(path)
             except OSError as e:
-                print(f"Error deleting temp file {path}: {e}")
+                self.logger.warning("Error deleting temp file %s: %s", path, e)

@@ -2,6 +2,7 @@ import os
 import time
 import json
 import shutil
+import logging
 import psycopg2
 import paramiko
 from typing import Dict, Tuple
@@ -26,15 +27,25 @@ class DataUploader:
 
     def start(self) -> None:
         """Starts the main uploader loop."""
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.FileHandler('logs/data_uploader.log'),
+                logging.StreamHandler()
+            ]
+        )
+        logger = logging.getLogger('DataUploader')
+        
         if not self.config.get('enabled', True):
-            print("Data uploader is disabled in configuration. Files will remain in pending_upload folder.")
+            logger.info("Data uploader is disabled in configuration. Files will remain in pending_upload folder.")
             return
         
         if self.is_running:
-            print("Data uploader is already running.")
+            logger.warning("Data uploader is already running.")
             return
         self.is_running = True
-        print("Starting Data Uploader...")
+        logger.info("Starting Data Uploader...")
         self._processing_loop()
 
     def stop(self) -> None:
@@ -44,23 +55,22 @@ class DataUploader:
 
     def _processing_loop(self) -> None:
         """The main loop for scanning and processing jobs."""
+        logger = logging.getLogger('DataUploader')
         while self.is_running:
-            print(f"Uploader: Scanning {self.pending_dir} for new jobs...")
+            logger.info("Scanning %s for new jobs...", self.pending_dir)
             try:
-                # Find all .json files, which are the triggers for a job
                 job_files = [f for f in os.listdir(self.pending_dir) if f.endswith('.json')]
                 if not job_files:
-                    print("Uploader: No new jobs found.")
+                    logger.info("No new jobs found.")
                 
                 for job_file in job_files:
-                    if not self.is_running: break # Allow for a faster exit
+                    if not self.is_running: break
                     json_path = os.path.join(self.pending_dir, job_file)
                     self._process_job(json_path)
 
             except Exception as e:
-                print(f"Uploader: An unexpected error occurred during the scan loop: {e}")
+                logger.exception("An unexpected error occurred during the scan loop: %s", e)
 
-            # Sleep for the configured interval before the next scan
             for _ in range(self.config['scan_interval_seconds']):
                 if not self.is_running: break
                 time.sleep(1)
@@ -71,7 +81,8 @@ class DataUploader:
         This function is designed to be atomic: if any step fails, the entire
         operation for this job is aborted, leaving local files untouched for retry.
         """
-        print(f"Uploader: Processing job -> {os.path.basename(json_path)}")
+        logger = logging.getLogger('DataUploader')
+        logger.info("Processing job -> %s", os.path.basename(json_path))
         
         db_conn = None
         ssh_client = None
@@ -84,11 +95,11 @@ class DataUploader:
             
             video_path = metadata.get('local_video_path')
             if not video_path or not os.path.exists(video_path):
-                print(f"Uploader: Error - Video file not found for {json_path}. Skipping.")
+                logger.error("Video file not found for %s. Skipping.", json_path)
                 return
 
             # --- Step 2: DB INSERT (Phase 1) ---
-            print("  > Connecting to database...")
+            logger.info("  > Connecting to database...")
             db_conn = self._connect_db()
             cursor = db_conn.cursor()
             
@@ -107,10 +118,10 @@ class DataUploader:
                 metadata['event_summary']['primary_species']
             ))
             db_conn.commit()
-            print("  > DB record inserted/ensured in 'pending' state.")
+            logger.info("  > DB record inserted/ensured in 'pending' state.")
 
             # --- Step 3: SFTP UPLOAD ---
-            print("  > Connecting to SFTP server...")
+            logger.info("  > Connecting to SFTP server...")
             ssh_client, sftp_client = self._connect_sftp()
             
             remote_video_name = os.path.basename(video_path)
@@ -119,13 +130,13 @@ class DataUploader:
             remote_video_path = os.path.join(self.config['sftp']['remote_video_dir'], remote_video_name)
             remote_json_path = os.path.join(self.config['sftp']['remote_json_dir'], remote_json_name)
 
-            print(f"  > Uploading video to {remote_video_path}...")
+            logger.info("  > Uploading video to %s...", remote_video_path)
             sftp_client.put(video_path, remote_video_path)
-            print(f"  > Uploading json to {remote_json_path}...")
+            logger.info("  > Uploading json to %s...", remote_json_path)
             sftp_client.put(json_path, remote_json_path)
             
             # --- Step 4: DB UPDATE (Phase 2) ---
-            print("  > Updating database record to 'completed'...")
+            logger.info("  > Updating database record to 'completed'...")
             sql_update = """
                 UPDATE events 
                 SET status = 'completed', remote_video_path = %s, remote_json_path = %s
@@ -135,7 +146,7 @@ class DataUploader:
             db_conn.commit()
             
             # --- Step 5: INSERT into detections table ---
-            print("  > Inserting into detections table...")
+            logger.info("  > Inserting into detections table...")
             # 5.1 Build summaries from metadata
             classes_detected = metadata['event_summary']['species_list']
             counts = {}
@@ -165,21 +176,19 @@ class DataUploader:
             upload_successful = True
 
         except (psycopg2.Error, paramiko.SSHException, IOError) as e:
-            print(f"Uploader: A recoverable error occurred while processing {os.path.basename(json_path)}. Error: {e}. Will retry later.")
-            # Rollback any partial DB transaction
+            logger.error("A recoverable error occurred while processing %s. Error: %s. Will retry later.", 
+                        os.path.basename(json_path), e)
             if db_conn:
                 db_conn.rollback()
         
         finally:
-            # --- Ensure all connections are closed ---
             if db_conn:
                 db_conn.close()
             if ssh_client:
                 ssh_client.close()
             
-            # --- Step 5: LOCAL CLEANUP (only on full success) ---
             if upload_successful:
-                print(f"Uploader: Successfully uploaded {os.path.basename(json_path)}. Moving local files.")
+                logger.info("Successfully uploaded %s. Moving local files.", os.path.basename(json_path))
                 self._move_local_files(json_path, video_path)
 
     def _connect_db(self):
@@ -202,8 +211,9 @@ class DataUploader:
 
     def _move_local_files(self, json_path: str, video_path: str) -> None:
         """Moves successfully uploaded files to the 'uploaded' directory."""
+        logger = logging.getLogger('DataUploader')
         try:
             shutil.move(json_path, os.path.join(self.uploaded_dir, os.path.basename(json_path)))
             shutil.move(video_path, os.path.join(self.uploaded_dir, os.path.basename(video_path)))
         except (IOError, OSError) as e:
-            print(f"Uploader: Critical error - Failed to move local files after successful upload: {e}")
+            logger.critical("Failed to move local files after successful upload: %s", e)

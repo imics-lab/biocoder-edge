@@ -208,3 +208,6 @@ __marimo__/
 
 # Project-specific data
 data/
+
+# Log files
+logs/*.log
