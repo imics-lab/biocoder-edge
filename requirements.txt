@@ -14,9 +14,11 @@
 opencv-python       # For all camera access, image/video processing (resize, blur), and video encoding.
 numpy               # Fundamental package for handling image data as numerical arrays.
 scipy
+torch==2.5.0
+torchvision==0.20.0
 
 # AI / Object Detection
-ultralytics         # The official package for running YOLO models for animal detection.
+ultralytics==8.3.205         # The official package for running YOLO models for animal detection.
 
 # Database & Networking
 psycopg2-binary     # PostgreSQL database adapter for Python. Used by the uploader to record event metadata.
