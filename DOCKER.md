@@ -52,7 +52,7 @@ If you plan to use NVIDIA GPU acceleration:
    sudo systemctl restart docker
 
    # Test GPU access
-   docker run --rm --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi
+   docker run --rm --runtime=nvidia nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi
    ```
 
 ## Quick Start

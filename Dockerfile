@@ -32,7 +32,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     # For OpenCV
     libgl1-mesa-glx \
-    libgthread-2.0-0 \
     # For camera access and USB devices
     v4l-utils \
     # Networking utilities
