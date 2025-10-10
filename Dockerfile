@@ -36,6 +36,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     # For OpenCV
     libgl1-mesa-glx \
+    # GStreamer plugins (essential for camera pipelines on Jetson)
+    gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad \
+    gstreamer1.0-libav \
     # For camera access and USB devices
     v4l-utils \
     # Networking utilities
