@@ -58,13 +58,15 @@ services:
     
     # Device mappings - grant container access to hardware
     devices:
-      # Video device (camera) - adjust device number as needed
-      # /dev/video0 is typically the first camera
-      # Change to /dev/video1, /dev/video2, etc. if you have multiple cameras
+      # USB Camera creates multiple video devices - map all of them
+      # Your camera may expose video0-3, adjust as needed based on v4l2-ctl --list-devices
       - /dev/video0:/dev/video0
-      # Uncomment additional cameras if needed:
+      # Uncomment if your camera creates multiple video nodes:
       # - /dev/video1:/dev/video1
       # - /dev/video2:/dev/video2
+      # - /dev/video3:/dev/video3
+      # Media controller device (uncomment if using USB camera that requires it)
+      # - /dev/media1:/dev/media1
 
     # Port mappings - expose container ports to host
     ports:
