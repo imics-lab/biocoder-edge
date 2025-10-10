@@ -17,12 +17,30 @@ import argparse
 import sys
 
 
-def test_camera(video_source):
+def gstreamer_pipeline(
+    device_id=0,
+    capture_width=640,
+    capture_height=480,
+    framerate=30
+):
+    """
+    Constructs a GStreamer pipeline string for camera capture on Jetson.
+    """
+    return (
+        f"v4l2src device=/dev/video{device_id} ! "
+        f"video/x-raw, width=(int){capture_width}, height=(int){capture_height}, framerate=(fraction){framerate}/1 ! "
+        "videoconvert ! "
+        f"video/x-raw, format=(string)BGR ! appsink"
+    )
+
+
+def test_camera(video_source, use_gstreamer=True):
     """
     Tests the camera/video source by displaying frames and basic information.
     
     Args:
         video_source: Camera index (int) or path to video file (str)
+        use_gstreamer: If True, use a GStreamer pipeline for camera capture.
     """
     print("=" * 60)
     print("BioCoder-Edge Camera Test")
@@ -32,10 +50,12 @@ def test_camera(video_source):
     
     # Initialize the camera (same as detector.py does)
     print("Initializing video source...")
-    if isinstance(video_source, int):
-        print("Using V4L2 backend for camera device")
-        camera = cv2.VideoCapture(video_source, cv2.CAP_V4L2)
+    if isinstance(video_source, int) and use_gstreamer:
+        pipeline = gstreamer_pipeline(device_id=video_source)
+        print(f"Using GStreamer pipeline: {pipeline}")
+        camera = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
     else:
+        print("Using default OpenCV backend.")
         camera = cv2.VideoCapture(video_source)
     
     if not camera.isOpened():
@@ -189,6 +209,12 @@ Examples:
         help="Camera index (0, 1, 2, ...) or path to video file (default: 0)"
     )
     
+    parser.add_argument(
+        '--no-gstreamer',
+        action='store_true',
+        help="Do not use GStreamer pipeline (use default OpenCV backend)"
+    )
+    
     args = parser.parse_args()
     
     # Convert to int if it's a numeric camera index
@@ -198,7 +224,7 @@ Examples:
         video_source = args.source
     
     # Run the test
-    success = test_camera(video_source)
+    success = test_camera(video_source, use_gstreamer=not args.no_gstreamer)
     
     if not success:
         sys.exit(1)

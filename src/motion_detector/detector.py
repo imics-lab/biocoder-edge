@@ -6,6 +6,25 @@ from multiprocessing import Queue
 from typing import Dict, Optional, List
 import numpy as np
 
+
+def gstreamer_pipeline(
+    device_id=0,
+    capture_width=640,
+    capture_height=480,
+    framerate=30,
+):
+    """
+    Constructs a GStreamer pipeline string for camera capture on Jetson.
+    This is the recommended way to use cv2.VideoCapture on Jetson devices.
+    """
+    return (
+        f"v4l2src device=/dev/video{device_id} ! "
+        f"video/x-raw, width=(int){capture_width}, height=(int){capture_height}, framerate=(fraction){framerate}/1 ! "
+        "videoconvert ! "
+        f"video/x-raw, format=(string)BGR ! appsink"
+    )
+
+
 class MotionDetector:
     """
     Detects motion in a video stream and passes event frames to a queue.
@@ -29,6 +48,13 @@ class MotionDetector:
         
         # Kernel size for Gaussian blur - must be odd
         self.blur_kernel = tuple(self.config.get('blur_kernel_size', [21,21]))
+        
+        # --- GStreamer Configuration (for Jetson) ---
+        # These settings are used to construct the GStreamer pipeline
+        self.use_gstreamer = self.config.get('use_gstreamer', True)
+        self.gst_capture_width = self.config.get('gstreamer_capture_width', 640)
+        self.gst_capture_height = self.config.get('gstreamer_capture_height', 480)
+        self.gst_framerate = self.config.get('gstreamer_framerate', 30)
         
         # --- Live View Configuration ---
         live_view_config = config.get('live_view', {})
@@ -75,13 +101,21 @@ class MotionDetector:
         
         logger.info("Initializing video source: %s", self.video_source)
         try:
-            # Explicitly use V4L2 backend for camera devices
-            if isinstance(self.video_source, int):
-                logger.info("Opening camera with V4L2 backend")
-                self.camera = cv2.VideoCapture(self.video_source, cv2.CAP_V4L2)
+            # For Jetson, use GStreamer pipeline for camera devices
+            if isinstance(self.video_source, int) and self.use_gstreamer:
+                pipeline = gstreamer_pipeline(
+                    device_id=self.video_source,
+                    capture_width=self.gst_capture_width,
+                    capture_height=self.gst_capture_height,
+                    framerate=self.gst_framerate,
+                )
+                logger.info("Using GStreamer pipeline: %s", pipeline)
+                self.camera = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
             else:
+                # Fallback for non-GStreamer or video files
+                logger.info("Using default OpenCV backend.")
                 self.camera = cv2.VideoCapture(self.video_source)
-            
+
             if not self.camera.isOpened():
                 logger.error("FATAL: Cannot open video source: %s in child process.", self.video_source)
                 return
