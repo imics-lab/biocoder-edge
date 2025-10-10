@@ -24,15 +24,16 @@ def gstreamer_pipeline(
     framerate=30
 ):
     """
-    Constructs a GStreamer pipeline string for camera capture on Jetson.
-    This pipeline is optimized for Jetson hardware acceleration using nvvidconv.
+    Constructs a GStreamer pipeline for Jetson.
+    This pipeline uses nvvidconv to handle hardware memory (NVMM) and convert
+    the final output to BGR format for OpenCV.
     """
     return (
-        f"v4l2src device=/dev/video{device_id} ! "
+        f"vl2src device=/dev/video{device_id} ! "
         f"video/x-raw, width=(int){capture_width}, height=(int){capture_height}, framerate=(fraction){framerate}/1 ! "
         "nvvidconv ! "
-        "video/x-raw(memory:NVMM), format=(string)BGRx ! "
-        "videoconvert ! "
+        "video/x-raw(memory:NVMM) ! "
+        "nvvidconv ! "
         "video/x-raw, format=(string)BGR ! appsink"
     )
 
