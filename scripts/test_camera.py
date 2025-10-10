@@ -17,30 +17,12 @@ import argparse
 import sys
 
 
-def gstreamer_pipeline(
-    device_id=0,
-    capture_width=640,
-    capture_height=480,
-    framerate=30
-):
-    """
-    Constructs a GStreamer pipeline for Jetson.
-    This simplified pipeline allows for more direct format negotiation.
-    """
-    return (
-        f"v4l2src device=/dev/video{device_id} ! "
-        "nvvidconv ! "
-        "video/x-raw, format=(string)BGR ! appsink"
-    )
-
-
-def test_camera(video_source, use_gstreamer=True):
+def test_camera(video_source):
     """
     Tests the camera/video source by displaying frames and basic information.
     
     Args:
         video_source: Camera index (int) or path to video file (str)
-        use_gstreamer: If True, use a GStreamer pipeline for camera capture.
     """
     print("=" * 60)
     print("BioCoder-Edge Camera Test")
@@ -50,13 +32,7 @@ def test_camera(video_source, use_gstreamer=True):
     
     # Initialize the camera (same as detector.py does)
     print("Initializing video source...")
-    if isinstance(video_source, int) and use_gstreamer:
-        pipeline = gstreamer_pipeline(device_id=video_source)
-        print(f"Using GStreamer pipeline: {pipeline}")
-        camera = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
-    else:
-        print("Using default OpenCV backend.")
-        camera = cv2.VideoCapture(video_source)
+    camera = cv2.VideoCapture(video_source)
     
     if not camera.isOpened():
         print(f"FATAL: Cannot open video source: {video_source}")
@@ -209,12 +185,6 @@ Examples:
         help="Camera index (0, 1, 2, ...) or path to video file (default: 0)"
     )
     
-    parser.add_argument(
-        '--no-gstreamer',
-        action='store_true',
-        help="Do not use GStreamer pipeline (use default OpenCV backend)"
-    )
-    
     args = parser.parse_args()
     
     # Convert to int if it's a numeric camera index
@@ -224,7 +194,7 @@ Examples:
         video_source = args.source
     
     # Run the test
-    success = test_camera(video_source, use_gstreamer=not args.no_gstreamer)
+    success = test_camera(video_source)
     
     if not success:
         sys.exit(1)
@@ -232,4 +202,3 @@ Examples:
 
 if __name__ == "__main__":
     main()
-
