@@ -59,6 +59,9 @@ services:
       # Temporary directory for large event processing
       - biocoder-temp:/tmp/biocoder_edge_temp
 
+    # Privileged mode for full device access (needed for V4L2 on Jetson)
+    privileged: true
+    
     # Device mappings - grant container access to hardware
     devices:
       # Video device (camera) - adjust device number as needed
