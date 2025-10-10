@@ -21,7 +21,7 @@ def gstreamer_pipeline(
         f"v4l2src device=/dev/video{device_id} ! "
         f"video/x-raw, width=(int){capture_width}, height=(int){capture_height}, framerate=(fraction){framerate}/1 ! "
         "nvvidconv ! "
-        "video/x-raw, format=(string)BGRx ! "
+        "video/x-raw(memory:NVMM), format=(string)BGRx ! "
         "videoconvert ! "
         "video/x-raw, format=(string)BGR ! appsink"
     )
