@@ -32,7 +32,11 @@ def test_camera(video_source):
     
     # Initialize the camera (same as detector.py does)
     print("Initializing video source...")
-    camera = cv2.VideoCapture(video_source)
+    if isinstance(video_source, int):
+        print("Using V4L2 backend for camera device")
+        camera = cv2.VideoCapture(video_source, cv2.CAP_V4L2)
+    else:
+        camera = cv2.VideoCapture(video_source)
     
     if not camera.isOpened():
         print(f"FATAL: Cannot open video source: {video_source}")

@@ -75,7 +75,13 @@ class MotionDetector:
         
         logger.info("Initializing video source: %s", self.video_source)
         try:
-            self.camera = cv2.VideoCapture(self.video_source)
+            # Explicitly use V4L2 backend for camera devices
+            if isinstance(self.video_source, int):
+                logger.info("Opening camera with V4L2 backend")
+                self.camera = cv2.VideoCapture(self.video_source, cv2.CAP_V4L2)
+            else:
+                self.camera = cv2.VideoCapture(self.video_source)
+            
             if not self.camera.isOpened():
                 logger.error("FATAL: Cannot open video source: %s in child process.", self.video_source)
                 return
