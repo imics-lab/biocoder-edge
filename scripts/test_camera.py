@@ -29,7 +29,7 @@ def gstreamer_pipeline(
     the final output to BGR format for OpenCV.
     """
     return (
-        f"vl2src device=/dev/video{device_id} ! "
+        f"v4l2src device=/dev/video{device_id} ! "
         f"video/x-raw, width=(int){capture_width}, height=(int){capture_height}, framerate=(fraction){framerate}/1 ! "
         "nvvidconv ! "
         "video/x-raw(memory:NVMM) ! "
