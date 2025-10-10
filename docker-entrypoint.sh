@@ -49,12 +49,17 @@ if [ ! -f "/app/model_weight/best.pt" ]; then
     echo "The application may fail if the YOLO model is not available."
 fi
 
+# Fix permissions on mounted volumes (must run as root)
+echo ""
+echo "Fixing permissions on mounted volumes..."
+chown -R biocoder:biocoder /app/logs /app/data /tmp/biocoder_edge_temp 2>/dev/null || true
+
 echo ""
 echo "Starting BioCoder-Edge Main Application..."
 echo "-------------------------------------------------------------------"
 
-# Start the main application in the background
-python main.py &
+# Start the main application in the background as biocoder user
+su -s /bin/bash biocoder -c "cd /app && python main.py" &
 MAIN_PID=$!
 echo "Main application started with PID: $MAIN_PID"
 
@@ -65,8 +70,8 @@ echo ""
 echo "Starting Stream Server..."
 echo "-------------------------------------------------------------------"
 
-# Start the stream server in the background
-python scripts/stream_server.py &
+# Start the stream server in the background as biocoder user
+su -s /bin/bash biocoder -c "cd /app && python scripts/stream_server.py" &
 STREAM_PID=$!
 echo "Stream server started with PID: $STREAM_PID"
 

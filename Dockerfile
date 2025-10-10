@@ -105,11 +105,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD pgrep -f "python.*main.py" || exit 1
 
 # -----------------------------------------------------------------------------
-# Switch to Non-Root User
-# -----------------------------------------------------------------------------
-USER biocoder
-
-# -----------------------------------------------------------------------------
 # Expose Ports (if using live view web server)
 # -----------------------------------------------------------------------------
 # Port 8080 is used by the optional stream_server.py for remote viewing

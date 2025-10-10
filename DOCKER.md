@@ -452,7 +452,7 @@ Add environment variables in `docker-compose.yml`:
 
 ```yaml
 environment:
-  - TZ=America/New_York
+  - TZ=America/Chicago
   - CUSTOM_VAR=value
 ```
 
