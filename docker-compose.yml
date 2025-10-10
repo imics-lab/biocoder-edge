@@ -8,8 +8,6 @@
 #   Stop:            docker compose down
 #   Stop & clean:    docker compose down -v
 
-version: '3.8'
-
 services:
   biocoder-edge:
     # Service name for the main application

@@ -13,8 +13,6 @@
 #   Stop:            docker compose -f docker-compose-gpu.yml down
 #   Stop & clean:    docker compose -f docker-compose-gpu.yml down -v
 
-version: '3.8'
-
 services:
   biocoder-edge:
     # Service name for the main application
