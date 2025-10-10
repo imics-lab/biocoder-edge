@@ -23,6 +23,10 @@ ENV PYTHONUNBUFFERED=1 \
 # Install System Dependencies
 # -----------------------------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Python (needed when using CUDA base image)
+    python3 \
+    python3-pip \
+    python3-dev \
     # Video and image processing
     ffmpeg \
     libsm6 \
@@ -41,6 +45,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     make \
+    && ln -sf /usr/bin/python3 /usr/bin/python \
+    && ln -sf /usr/bin/pip3 /usr/bin/pip \
     && rm -rf /var/lib/apt/lists/*
 
 # -----------------------------------------------------------------------------
