@@ -60,8 +60,8 @@ class AnimalAnalyzer:
         # On Jetson with 'spawn', the cuDNN backend can be problematic.
         # Disabling it entirely forces PyTorch to use its own, more stable
         # CUDA implementations for convolutions, which can prevent engine errors.
-        if torch.cuda.is_available():
-            torch.backends.cudnn.enabled = False
+        # if torch.cuda.is_available():
+        #     torch.backends.cudnn.enabled = False
 
         # Load YOLO model in child process (required for 'spawn' start method)
         self.logger.info("Loading YOLO model in child process...")

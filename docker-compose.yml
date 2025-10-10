@@ -1,0 +1,125 @@
+# BioCoder-Edge Docker Compose Configuration
+# This file defines the services and configuration for running BioCoder-Edge in Docker
+# Both main.py and stream_server.py run automatically in a single container
+#
+# Usage:
+#   Build and start: docker compose up --build -d
+#   View logs:       docker compose logs -f
+#   Stop:            docker compose down
+#   Stop & clean:    docker compose down -v
+
+version: '3.8'
+
+services:
+  biocoder-edge:
+    # Service name for the main application
+    container_name: biocoder-edge
+
+    # Build configuration
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Use standard Python base image (CPU-only)
+        BASE_IMAGE: python:3.11-slim
+
+    # Image name after building
+    image: biocoder-edge:latest
+
+    # Override the default CMD with the entrypoint script
+    # This runs both main.py and stream_server.py automatically
+    entrypoint: ["/app/docker-entrypoint.sh"]
+
+    # Restart policy - automatically restart if container stops
+    restart: unless-stopped
+
+    # Volume mappings - mount host directories into container
+    volumes:
+      # Configuration file (REQUIRED - edit this file with your settings)
+      - ./config/config.yaml:/app/config/config.yaml:ro
+
+      # Model weights (REQUIRED - your trained YOLO model)
+      - ./model_weight:/app/model_weight:ro
+
+      # Data directories for output and uploads
+      - ./data/pending_upload:/app/data/pending_upload
+      - ./data/uploaded:/app/data/uploaded
+
+      # Logs directory for persistent logging
+      - ./logs:/app/logs
+
+      # Shared memory for live view feature (Linux systems)
+      # This allows the live view to work across the host and container
+      - /dev/shm:/dev/shm
+
+      # Temporary directory for large event processing
+      - biocoder-temp:/tmp/biocoder_edge_temp
+
+    # Device mappings - grant container access to hardware
+    devices:
+      # Video device (camera) - adjust device number as needed
+      # /dev/video0 is typically the first camera
+      # Change to /dev/video1, /dev/video2, etc. if you have multiple cameras
+      - /dev/video0:/dev/video0
+      # Uncomment additional cameras if needed:
+      # - /dev/video1:/dev/video1
+      # - /dev/video2:/dev/video2
+
+    # Port mappings - expose container ports to host
+    ports:
+      # Port for live view web server (stream_server.py)
+      # Access at http://localhost:8080 when running
+      - "8080:8080"
+
+    # Environment variables (optional)
+    environment:
+      # Set timezone for correct timestamps in logs and metadata
+      - TZ=UTC
+
+      # Python environment variables
+      - PYTHONUNBUFFERED=1
+
+    # Shared memory size - increase if you encounter memory issues with live view
+    shm_size: '256m'
+
+    # Security options
+    security_opt:
+      # Allow access to video devices
+      - seccomp:unconfined
+
+    # Privileged mode - required for full camera access
+    # Note: This is less secure but necessary for some camera drivers
+    # If your camera works without this, comment it out for better security
+    privileged: false
+
+    # Network mode
+    network_mode: bridge
+
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # Health check - verify both processes are running
+    healthcheck:
+      test: ["CMD", "sh", "-c", "pgrep -f 'python.*main.py' && pgrep -f 'python.*stream_server.py'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+# Named volumes for persistent data
+volumes:
+  biocoder-temp:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: size=1g
+
+# Networks (using default bridge network)
+networks:
+  default:
+    driver: bridge

@@ -1,0 +1,141 @@
+# BioCoder-Edge Docker Compose Configuration - GPU Variant
+# This file is specifically for running BioCoder-Edge with NVIDIA GPU support
+# Both main.py and stream_server.py run automatically in a single container
+# Useful for Jetson Nano, Jetson Orin, or other NVIDIA GPU-enabled devices
+#
+# Prerequisites:
+#   - NVIDIA Docker runtime installed (nvidia-docker2)
+#   - NVIDIA Container Toolkit configured
+#
+# Usage:
+#   Build and start: docker compose -f docker-compose-gpu.yml up --build -d
+#   View logs:       docker compose -f docker-compose-gpu.yml logs -f
+#   Stop:            docker compose -f docker-compose-gpu.yml down
+#   Stop & clean:    docker compose -f docker-compose-gpu.yml down -v
+
+version: '3.8'
+
+services:
+  biocoder-edge:
+    # Service name for the main application
+    container_name: biocoder-edge-gpu
+
+    # Build configuration with NVIDIA CUDA base image
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Use NVIDIA CUDA base image for GPU support
+        # For Jetson devices, you may need to use nvcr.io/nvidia/l4t-pytorch
+        # For x86_64 with NVIDIA GPU, use nvidia/cuda
+        BASE_IMAGE: nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+
+    # Image name after building
+    image: biocoder-edge-gpu:latest
+
+    # Override the default CMD with the entrypoint script
+    # This runs both main.py and stream_server.py automatically
+    entrypoint: ["/app/docker-entrypoint.sh"]
+
+    # Restart policy - automatically restart if container stops
+    restart: unless-stopped
+
+    # Volume mappings - mount host directories into container
+    volumes:
+      # Configuration file (REQUIRED - edit this file with your settings)
+      - ./config/config.yaml:/app/config/config.yaml:ro
+
+      # Model weights (REQUIRED - your trained YOLO model)
+      - ./model_weight:/app/model_weight:ro
+
+      # Data directories for output and uploads
+      - ./data/pending_upload:/app/data/pending_upload
+      - ./data/uploaded:/app/data/uploaded
+
+      # Logs directory for persistent logging
+      - ./logs:/app/logs
+
+      # Shared memory for live view feature (Linux systems)
+      - /dev/shm:/dev/shm
+
+      # Temporary directory for large event processing
+      - biocoder-temp:/tmp/biocoder_edge_temp
+
+    # Device mappings - grant container access to hardware
+    devices:
+      # Video device (camera) - adjust device number as needed
+      - /dev/video0:/dev/video0
+      # Uncomment additional cameras if needed:
+      # - /dev/video1:/dev/video1
+      # - /dev/video2:/dev/video2
+
+    # Port mappings
+    ports:
+      # Port for live view web server
+      - "8080:8080"
+
+    # Environment variables for GPU support
+    environment:
+      # Timezone
+      - TZ=UTC
+
+      # Python environment
+      - PYTHONUNBUFFERED=1
+
+      # NVIDIA GPU configuration
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility,video
+
+      # CUDA environment variables
+      - CUDA_VISIBLE_DEVICES=0
+
+    # Shared memory size - important for GPU operations
+    shm_size: '512m'
+
+    # Runtime configuration for NVIDIA GPU
+    runtime: nvidia
+
+    # Deploy configuration for GPU resource reservation
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu, compute, utility, video]
+
+    # Security options
+    security_opt:
+      - seccomp:unconfined
+
+    # Network mode
+    network_mode: bridge
+
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # Health check - verify both processes are running
+    healthcheck:
+      test: ["CMD", "sh", "-c", "pgrep -f 'python.*main.py' && pgrep -f 'python.*stream_server.py'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+# Named volumes
+volumes:
+  biocoder-temp:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: size=1g
+
+# Networks
+networks:
+  default:
+    driver: bridge
