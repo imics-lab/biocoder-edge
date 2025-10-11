@@ -62,17 +62,22 @@ def frame_generator():
         min_interval = 1.0 / MIN_FPS if MIN_FPS > 0 else 1.0 / 5.0
 
         last_sent_time = 0.0
+        last_mtime = 0.0
 
         while True:
             frame_bytes = None
             try:
-                # Read the latest frame from the RAM disk
-                with open(RAM_DISK_PATH, 'rb') as f:
-                    data = f.read()
-                    # Simple JPEG SOI/EOI sanity check to avoid partial reads
-                    if len(data) > 3 and data[:2] == b'\xff\xd8' and data[-2:] == b'\xff\xd9':
-                        frame_bytes = data
-            except FileNotFoundError:
+                # Check if the file has been modified since the last read
+                mtime = os.path.getmtime(RAM_DISK_PATH)
+                if mtime > last_mtime:
+                    # Read the latest frame from the RAM disk
+                    with open(RAM_DISK_PATH, 'rb') as f:
+                        data = f.read()
+                        # Simple JPEG SOI/EOI sanity check to avoid partial reads
+                        if len(data) > 3 and data[:2] == b'\xff\xd8' and data[-2:] == b'\xff\xd9':
+                            frame_bytes = data
+                            last_mtime = mtime
+            except (FileNotFoundError, OSError):
                 pass
 
             # Fallback to last good frame to avoid gaps
