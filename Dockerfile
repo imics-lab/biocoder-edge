@@ -45,14 +45,22 @@ WORKDIR /app
 # Install Python Dependencies
 # -----------------------------------------------------------------------------
 # Copy requirements first for better layer caching
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# COPY requirements.txt .
+# RUN pip install --no-cache-dir -r requirements.txt
 
 # The l4t-pytorch base image comes with torch and torchvision pre-installed.
 # We install ultralytics separately to ensure it uses the system-provided torch.
 # --no-dependencies prevents pip from replacing the pre-compiled packages
 # in the base image (like numpy, torch, etc.)
 RUN pip install --no-dependencies ultralytics
+
+# Database & Networking
+RUN pip install psycopg2-binary paramiko
+# Utilities
+RUN pip install PyYAML
+
+# Web server for the optional remote live stream
+RUN pip install Flask==2.2.5
 
 # -----------------------------------------------------------------------------
 # Copy Application Code
