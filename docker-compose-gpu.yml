@@ -26,7 +26,7 @@ services:
         # Use NVIDIA CUDA base image for GPU support
         # For Jetson devices, you may need to use nvcr.io/nvidia/l4t-pytorch
         # For x86_64 with NVIDIA GPU, use nvidia/cuda
-        BASE_IMAGE: nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+        BASE_IMAGE: nvcr.io/nvidia/l4t-pytorch:r35.4.1-pth2.1-py3
 
     # Image name after building
     image: biocoder-edge-gpu:latest

@@ -16,7 +16,7 @@ numpy               # Fundamental package for handling image data as numerical a
 scipy
 
 # AI / Object Detection
-ultralytics         # The official package for running YOLO models for animal detection.
+# ultralytics         # The official package for running YOLO models for animal detection.
 
 # Database & Networking
 psycopg2-binary     # PostgreSQL database adapter for Python. Used by the uploader to record event metadata.

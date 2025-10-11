@@ -75,6 +75,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# The l4t-pytorch base image comes with torch and torchvision pre-installed.
+# We install ultralytics separately to ensure it uses the system-provided torch.
+RUN pip install ultralytics
+
 # -----------------------------------------------------------------------------
 # Copy Application Code
 # -----------------------------------------------------------------------------
