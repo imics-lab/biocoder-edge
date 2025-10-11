@@ -70,7 +70,7 @@ Follow these instructions to get a copy of the project up and running on your lo
 ### Prerequisites
 
 -   Python 3.8 or higher
--   An NVIDIA Jetson device (or a Linux PC with a CUDA-enabled GPU)
+-   An NVIDIA Jetson device (or a Linux PC with a CUDA-enabled GPU). **Note:** This application is computationally intensive and requires a CUDA-enabled GPU to run effectively. CPU-only execution is not supported due to poor performance.
 -   A connected camera (USB webcam or CSI camera)
 -   `ffmpeg` installed (`sudo apt-get install ffmpeg`)
 -   Access to a remote server with PostgreSQL and an SFTP user
