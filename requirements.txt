@@ -11,15 +11,15 @@
 # -----------------------------------------------------------------------------
 
 # Core Computer Vision & Array Manipulation
-opencv-python       # For all camera access, image/video processing (resize, blur), and video encoding.
-numpy               # Fundamental package for handling image data as numerical arrays.
+# opencv-python       # For all camera access, image/video processing (resize, blur), and video encoding.
+# numpy               # Fundamental package for handling image data as numerical arrays.
 scipy
 
 # AI / Object Detection
 # ultralytics         # The official package for running YOLO models for animal detection.
 
 # Database & Networking
-psycopg2-binary     # PostgreSQL database adapter for Python. Used by the uploader to record event metadata.
+sycopg2-binary     # PostgreSQL database adapter for Python. Used by the uploader to record event metadata.
 paramiko            # A pure Python implementation of the SSHv2 protocol, providing both client and server functionality. Used for SFTP file transfers.
 
 # Utilities
