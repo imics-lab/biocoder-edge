@@ -23,9 +23,9 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        # Use the dustynv/jetson-inference container, which is specifically
-        # built for Jetson devices and includes all necessary ML dependencies.
-        BASE_IMAGE: dustynv/jetson-inference:r36.3.0
+        # Use the dustynv/l4t-ml container, which is a comprehensive ML image
+        # that directly matches the host's R36 JetPack version.
+        BASE_IMAGE: dustynv/l4t-ml:r36.2.0
 
     # Image name after building
     image: biocoder-edge-gpu:latest

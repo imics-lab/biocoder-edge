@@ -22,9 +22,9 @@ ENV PYTHONUNBUFFERED=1 \
 # -----------------------------------------------------------------------------
 # Install System Dependencies
 # -----------------------------------------------------------------------------
-# The dustynv/jetson-inference base image contains all necessary system
-# dependencies like Python, OpenCV, GStreamer, and more. No further
-# system-level installation is needed.
+# The dustynv/l4t-ml base image contains all necessary system dependencies
+# like Python, OpenCV, GStreamer, and more. No further system-level
+# installation is needed.
 
 # -----------------------------------------------------------------------------
 # Create Application User (security best practice)
@@ -42,11 +42,11 @@ WORKDIR /app
 # -----------------------------------------------------------------------------
 # Copy requirements first for better layer caching
 COPY requirements.txt .
-RUN pip install --no-cache-dir --extra-index-url https://pypi.jetson-ai-lab.io/jp6/cu126/+simple -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # The l4t-pytorch base image comes with torch and torchvision pre-installed.
 # We install ultralytics separately to ensure it uses the system-provided torch.
-RUN pip install --extra-index-url https://pypi.jetson-ai-lab.io/jp6/cu126/+simple ultralytics
+RUN pip install ultralytics
 
 # -----------------------------------------------------------------------------
 # Copy Application Code
