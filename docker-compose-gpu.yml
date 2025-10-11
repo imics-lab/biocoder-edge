@@ -80,6 +80,9 @@ services:
 
     # Environment variables for GPU support
     environment:
+      # Use the cudaMallocAsync backend to prevent memory allocation errors on Jetson
+      - PYTORCH_CUDA_ALLOC_CONF=backend:cudaMallocAsync
+      
       # Timezone
       - TZ=UTC
 
