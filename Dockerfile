@@ -42,11 +42,11 @@ WORKDIR /app
 # -----------------------------------------------------------------------------
 # Copy requirements first for better layer caching
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --extra-index-url https://pypi.jetson-ai-lab.io/jp6/cu126/+simple -r requirements.txt
 
 # The l4t-pytorch base image comes with torch and torchvision pre-installed.
 # We install ultralytics separately to ensure it uses the system-provided torch.
-RUN pip install ultralytics
+RUN pip install --extra-index-url https://pypi.jetson-ai-lab.io/jp6/cu126/+simple ultralytics
 
 # -----------------------------------------------------------------------------
 # Copy Application Code
