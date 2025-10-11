@@ -22,39 +22,11 @@ ENV PYTHONUNBUFFERED=1 \
 # -----------------------------------------------------------------------------
 # Install System Dependencies
 # -----------------------------------------------------------------------------
+# The l4t-ml base image includes Python, pip, and many other dependencies.
+# We only need to install a few remaining packages.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    # Python (needed when using CUDA base image)
-    python3 \
-    python3-pip \
-    python3-dev \
-    # Video and image processing
-    ffmpeg \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
-    libgomp1 \
-    libglib2.0-0 \
-    # OpenGL libraries (dependency for NVIDIA GStreamer plugins)
-    libgles2-mesa-dev \
-    # For OpenCV
-    libgl1-mesa-glx \
-    # GStreamer plugins (essential for camera pipelines on Jetson)
-    gstreamer1.0-tools \
-    gstreamer1.0-plugins-good \
-    gstreamer1.0-plugins-bad \
-    gstreamer1.0-plugins-ugly \
-    gstreamer1.0-libav \
     # For camera access and USB devices
     v4l-utils \
-    # Networking utilities
-    curl \
-    wget \
-    # Build tools (needed for some Python packages)
-    gcc \
-    g++ \
-    make \
-    && ln -sf /usr/bin/python3 /usr/bin/python \
-    && ln -sf /usr/bin/pip3 /usr/bin/pip \
     && rm -rf /var/lib/apt/lists/*
 
 # -----------------------------------------------------------------------------

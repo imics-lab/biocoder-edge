@@ -23,10 +23,9 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        # Use NVIDIA CUDA base image for GPU support
-        # For Jetson devices, you may need to use nvcr.io/nvidia/l4t-pytorch
-        # For x86_64 with NVIDIA GPU, use nvidia/cuda
-        BASE_IMAGE: nvcr.io/nvidia/l4t-pytorch:r36.2.0-pth2.1-py3
+        # Use NVIDIA l4t-ml base image, which is compatible with JetPack 6 (R36)
+        # and includes PyTorch and other ML frameworks.
+        BASE_IMAGE: nvcr.io/nvidia/l4t-ml:r35.4.1-py3
 
     # Image name after building
     image: biocoder-edge-gpu:latest
