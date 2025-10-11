@@ -25,6 +25,7 @@ ENV PYTHONUNBUFFERED=1 \
 # The dustynv/l4t-ml base image contains all necessary system dependencies
 # like Python, OpenCV, GStreamer, and more. No further system-level
 # installation is needed.
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
 
 # Create a symbolic link so 'python' can be used to run 'python3'
 RUN ln -sf /usr/bin/python3 /usr/bin/python
