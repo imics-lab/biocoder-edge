@@ -22,12 +22,9 @@ ENV PYTHONUNBUFFERED=1 \
 # -----------------------------------------------------------------------------
 # Install System Dependencies
 # -----------------------------------------------------------------------------
-# The l4t-ml base image includes Python, pip, and many other dependencies.
-# We only need to install a few remaining packages.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    # For camera access and USB devices
-    v4l-utils \
-    && rm -rf /var/lib/apt/lists/*
+# The dustynv/jetson-inference base image contains all necessary system
+# dependencies like Python, OpenCV, GStreamer, and more. No further
+# system-level installation is needed.
 
 # -----------------------------------------------------------------------------
 # Create Application User (security best practice)

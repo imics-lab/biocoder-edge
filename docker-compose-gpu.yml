@@ -23,9 +23,9 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        # Use NVIDIA l4t-ml base image, which is compatible with JetPack 6 (R36)
-        # and includes PyTorch and other ML frameworks.
-        BASE_IMAGE: nvcr.io/nvidia/l4t-ml:r35.4.1-py3
+        # Use the dustynv/jetson-inference container, which is specifically
+        # built for Jetson devices and includes all necessary ML dependencies.
+        BASE_IMAGE: dustynv/jetson-inference:r36.3.0
 
     # Image name after building
     image: biocoder-edge-gpu:latest
