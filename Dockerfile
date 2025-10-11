@@ -26,6 +26,9 @@ ENV PYTHONUNBUFFERED=1 \
 # like Python, OpenCV, GStreamer, and more. No further system-level
 # installation is needed.
 
+# Create a symbolic link so 'python' can be used to run 'python3'
+RUN ln -sf /usr/bin/python3 /usr/bin/python
+
 # -----------------------------------------------------------------------------
 # Create Application User (security best practice)
 # -----------------------------------------------------------------------------
