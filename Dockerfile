@@ -49,7 +49,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # The l4t-pytorch base image comes with torch and torchvision pre-installed.
 # We install ultralytics separately to ensure it uses the system-provided torch.
-RUN pip install ultralytics
+# --no-dependencies prevents pip from replacing the pre-compiled packages
+# in the base image (like numpy, torch, etc.)
+RUN pip install --no-dependencies ultralytics
 
 # -----------------------------------------------------------------------------
 # Copy Application Code
