@@ -60,7 +60,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # -----------------------------------------------------------------------------
 # Create Application User (security best practice)
 # -----------------------------------------------------------------------------
-RUN groupadd -r biocoder && useradd -r -g biocoder biocoder
+# Create the user and add them to the 'video' group to allow camera access
+RUN groupadd -r biocoder && useradd -r -g biocoder -aG video biocoder
 
 # -----------------------------------------------------------------------------
 # Set Working Directory
