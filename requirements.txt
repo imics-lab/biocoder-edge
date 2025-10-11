@@ -26,4 +26,4 @@ paramiko            # A pure Python implementation of the SSHv2 protocol, provid
 PyYAML              # For parsing the config.yaml file.
 
 # Web server for the optional remote live stream
-Flask
+Flask==2.2.5
