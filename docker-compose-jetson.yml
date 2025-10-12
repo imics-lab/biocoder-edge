@@ -1,31 +1,32 @@
-# BioCoder-Edge Docker Compose Configuration - Generic GPU Variant
-# This file is for running BioCoder-Edge on any NVIDIA GPU-enabled machine with CUDA support
+# BioCoder-Edge Docker Compose Configuration - Jetson Variant
+# This file is specifically for running BioCoder-Edge on NVIDIA Jetson devices
 # Both main.py and stream_server.py run automatically in a single container
-# Useful for desktop/server machines with NVIDIA GPUs (RTX, Tesla, etc.)
+# Optimized for Jetson Nano, Jetson Orin, and other Jetson family devices
 #
 # Prerequisites:
 #   - NVIDIA Docker runtime installed (nvidia-docker2)
 #   - NVIDIA Container Toolkit configured
-#   - NVIDIA GPU driver supporting CUDA 12.6+ (R560+)
+#   - JetPack SDK installed on host
 #
 # Usage:
-#   Build and start: docker compose -f docker-compose-gpu.yml up --build -d
-#   View logs:       docker compose -f docker-compose-gpu.yml logs -f
-#   Stop:            docker compose -f docker-compose-gpu.yml down
-#   Stop & clean:    docker compose -f docker-compose-gpu.yml down -v
+#   Build and start: docker compose -f docker-compose-jetson.yml up --build -d
+#   View logs:       docker compose -f docker-compose-jetson.yml logs -f
+#   Stop:            docker compose -f docker-compose-jetson.yml down
+#   Stop & clean:    docker compose -f docker-compose-jetson.yml down -v
 
 services:
   biocoder-edge:
     # Service name for the main application
     container_name: biocoder-edge-gpu
 
-    # Build configuration with NVIDIA PyTorch CUDA base image
+    # Build configuration with NVIDIA CUDA base image
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        # Use NVIDIA NGC PyTorch image with CUDA 12.6, PyTorch, and torchvision pre-installed
-        BASE_IMAGE: nvcr.io/nvidia/pytorch:24.12-py3
+        # Use the dustynv/l4t-ml container, which is a comprehensive ML image
+        # that directly matches the host's R36 JetPack version.
+        BASE_IMAGE: dustynv/l4t-ml:r36.2.0
 
     # Image name after building
     image: biocoder-edge-gpu:latest
@@ -58,15 +59,20 @@ services:
       # Temporary directory for large event processing
       - biocoder-temp:/tmp/biocoder_edge_temp
 
+    # Privileged mode for full device access (needed for V4L2 on Jetson)
+    privileged: true
+    
     # Device mappings - grant container access to hardware
     devices:
       # USB Camera creates multiple video devices - map all of them
-      # Adjust these based on your camera setup
       - /dev/video0:/dev/video0
-      # Uncomment additional video devices if needed:
-      # - /dev/video1:/dev/video1
-      # - /dev/video2:/dev/video2
-      # - /dev/video3:/dev/video3
+      - /dev/video1:/dev/video1
+      - /dev/video2:/dev/video2
+      - /dev/video3:/dev/video3
+      # Media controller device (required for USB cameras)
+      - /dev/media1:/dev/media1
+      # Uncomment additional cameras if needed:
+      # - /dev/video4:/dev/video4
 
     # Port mappings
     ports:
@@ -75,6 +81,9 @@ services:
 
     # Environment variables for GPU support
     environment:
+      # Use the cudaMallocAsync backend to prevent memory allocation errors on Jetson
+      - PYTORCH_CUDA_ALLOC_CONF=backend:cudaMallocAsync
+      
       # Timezone
       - TZ=UTC
 
@@ -89,7 +98,7 @@ services:
       - CUDA_VISIBLE_DEVICES=0
 
     # Shared memory size - important for GPU operations
-    shm_size: '2g'
+    shm_size: '512m'
 
     # Runtime configuration for NVIDIA GPU
     runtime: nvidia
@@ -102,6 +111,10 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu, compute, utility, video]
+
+    # Security options
+    security_opt:
+      - seccomp:unconfined
 
     # Network mode
     network_mode: bridge
@@ -134,4 +147,3 @@ volumes:
 networks:
   default:
     driver: bridge
-

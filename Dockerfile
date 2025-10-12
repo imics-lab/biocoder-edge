@@ -1,13 +1,14 @@
 # BioCoder-Edge Dockerfile
-# This Dockerfile supports both CPU and GPU (NVIDIA CUDA) deployments
-# For GPU support, use docker-compose-gpu.yml
+# This Dockerfile supports both Jetson and generic GPU (NVIDIA CUDA) deployments
+# For Jetson: use docker-compose-jetson.yml (BASE_IMAGE=dustynv/l4t-ml:r36.2.0)
+# For generic GPU: use docker-compose-gpu.yml (BASE_IMAGE=nvcr.io/nvidia/pytorch:24.12-py3)
 
 # -----------------------------------------------------------------------------
 # Base Image Selection
 # -----------------------------------------------------------------------------
-# Default: CPU-only Python base image
-# For GPU: Use nvidia/cuda base image (see docker-compose-gpu.yml)
-ARG BASE_IMAGE=python:3.11-slim
+# Default: Generic GPU with NVIDIA PyTorch image
+# Override with docker-compose build args for different configurations
+ARG BASE_IMAGE=nvcr.io/nvidia/pytorch:24.12-py3
 FROM ${BASE_IMAGE}
 
 # -----------------------------------------------------------------------------
@@ -22,13 +23,12 @@ ENV PYTHONUNBUFFERED=1 \
 # -----------------------------------------------------------------------------
 # Install System Dependencies
 # -----------------------------------------------------------------------------
-# The dustynv/l4t-ml base image contains all necessary system dependencies
-# like Python, OpenCV, GStreamer, and more. No further system-level
-# installation is needed.
+# Both base images (dustynv/l4t-ml and nvcr.io/nvidia/pytorch) contain most
+# necessary system dependencies. We only need to ensure ffmpeg is installed.
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
 
-# Create a symbolic link so 'python' can be used to run 'python3'
-RUN ln -sf /usr/bin/python3 /usr/bin/python
+# Create a symbolic link so 'python' can be used to run 'python3' (if not already present)
+RUN ln -sf /usr/bin/python3 /usr/bin/python || true
 
 # -----------------------------------------------------------------------------
 # Create Application User (security best practice)
@@ -44,12 +44,9 @@ WORKDIR /app
 # -----------------------------------------------------------------------------
 # Install Python Dependencies
 # -----------------------------------------------------------------------------
-# Copy requirements first for better layer caching
-# COPY requirements.txt .
-# RUN pip install --no-cache-dir -r requirements.txt
-
-# The l4t-pytorch base image comes with torch and torchvision pre-installed.
-# We install ultralytics separately to ensure it uses the system-provided torch.
+# Both base images (dustynv/l4t-ml and nvcr.io/nvidia/pytorch) come with
+# torch and torchvision pre-installed. We install ultralytics separately
+# to ensure it uses the system-provided torch.
 # --no-dependencies prevents pip from replacing the pre-compiled packages
 # in the base image (like numpy, torch, etc.)
 RUN pip install --no-dependencies ultralytics
