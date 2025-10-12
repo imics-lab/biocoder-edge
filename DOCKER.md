@@ -35,6 +35,8 @@ BioCoder-Edge provides two Docker Compose configurations to support different ha
 
 ## Prerequisites
 
+### Common Requirements (All Platforms)
+
 1.  **Docker** (version 20.10 or later)
     ```bash
     # Install Docker on Ubuntu/Debian
@@ -44,18 +46,42 @@ BioCoder-Edge provides two Docker Compose configurations to support different ha
     sudo usermod -aG docker $USER
     ```
 
-2.  **NVIDIA Docker Runtime**
+2.  **NVIDIA Container Toolkit** (Required for GPU access in Docker)
+    
+    This is **required** for both generic GPU machines and Jetson devices to allow Docker containers to access the GPU.
+    
     ```bash
-    # Install NVIDIA Container Toolkit
-    distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
-    curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
-    curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | \
-      sudo tee /etc/apt/sources.list.d/nvidia-docker.list
-
+    # Add the GPG key
+    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+    
+    # Add the repository (works for Ubuntu/Debian)
+    curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+        sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+        sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+    
+    # Update and install
     sudo apt-get update
-    sudo apt-get install -y nvidia-docker2
+    sudo apt-get install -y nvidia-container-toolkit
+    
+    # Configure Docker to use NVIDIA runtime
+    sudo nvidia-ctk runtime configure --runtime=docker
+    
+    # Restart Docker
     sudo systemctl restart docker
+    
+    # Verify installation (should show your GPU)
+    docker run --rm --gpus all nvidia/cuda:12.0.0-base-ubuntu22.04 nvidia-smi
     ```
+
+### Platform-Specific Requirements
+
+**For Generic GPU Machines:**
+- NVIDIA GPU driver R560+ (supporting CUDA 12.6)
+- x86_64 architecture
+
+**For Jetson Devices:**
+- JetPack SDK installed on host
+- ARM64 architecture
 
 ## Quick Start - Generic GPU
 
