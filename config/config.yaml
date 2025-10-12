@@ -13,7 +13,7 @@ motion_detector:
   # The video source to use for motion detection.
   # Can be a camera index (e.g., 0 for the first camera) or a path to a video file.
   # Defaults to 0 if not specified.
-  video_source: 0
+  video_source: 2
 
   blur_kernel_size: [21, 21]
   # The width (in pixels) to which frames are resized for motion analysis.
@@ -26,7 +26,7 @@ motion_detector:
 
   # The duration in seconds to continue recording after motion has stopped.
   # This ensures the full event is captured if an animal pauses briefly.
-  motion_cooldown_seconds: 10.0
+  motion_cooldown_seconds: 20.0
 
 # =============================================================================
 # Module B: Animal Analyzer Configuration
@@ -48,10 +48,31 @@ animal_analyzer:
   # If YOLO detects any of these, the event will be saved and uploaded.
   # Names must match the class names in your YOLO model.
   species_of_interest:
-    - 'Deer'
-    - 'Rabbit'
-    - 'Squirrel'
+    - 'American_Badger'
+    - 'Bobcat'
+    - 'Common_Raccoon'
+    - 'Coyote'
+    - 'Domestic_Cat'
+    - 'Domestic_Chicken'
+    - 'Domestic_Cow'
+    - 'Domestic_Dog'
+    - 'Domestic_Goat'
+    - 'Domestic_Sheep'
+    - 'Dove_Pigeon'
+    - 'Fox'
+    - 'Human'
+    - 'Mountain_Lion'
+    - 'Mouse_Rat'
+    - 'Mule_Deer'
+    - 'Nine-Banded_Armadillo'
+    - 'Rabbit_Hare'
+    - 'Skunk'
+    - 'Squirrel_Chipmunk'
+    - 'Virginia_Opossum'
     - 'Vulture'
+    - 'White-Tailed_Deer'
+    - 'Wild_Pig'
+    - 'Wild_Turkey'
 
   tracking_max_distance: 75
 

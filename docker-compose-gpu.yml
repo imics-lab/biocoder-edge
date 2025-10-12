@@ -6,7 +6,7 @@
 # Prerequisites:
 #   - NVIDIA Docker runtime installed (nvidia-docker2)
 #   - NVIDIA Container Toolkit configured
-#   - NVIDIA GPU driver supporting CUDA 12.6+ (R560+)
+#   - NVIDIA GPU driver supporting CUDA 11.x (R520+)
 #
 # Usage:
 #   Build and start: docker compose -f docker-compose-gpu.yml up --build -d
@@ -24,8 +24,12 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        # Use NVIDIA NGC PyTorch image with CUDA 12.6, PyTorch, and torchvision pre-installed
-        BASE_IMAGE: nvcr.io/nvidia/pytorch:24.12-py3
+        # Use NVIDIA NGC PyTorch image compatible with Pascal (sm_61) GPUs
+        # PyTorch 1.13.1 + CUDA 11.x + cuDNN 8.x
+        # Change this to the latest version of the image if you have a newer GPU
+        BASE_IMAGE: nvcr.io/nvidia/pytorch:22.12-py3
+        # Use the latest version of the image if you have a newer GPU
+        # BASE_IMAGE: nvcr.io/nvidia/pytorch:24.12-py3
 
     # Image name after building
     image: biocoder-edge-gpu:latest
@@ -64,8 +68,8 @@ services:
       # Adjust these based on your camera setup
       - /dev/video0:/dev/video0
       # Uncomment additional video devices if needed:
-      # - /dev/video1:/dev/video1
-      # - /dev/video2:/dev/video2
+      - /dev/video1:/dev/video1
+      - /dev/video2:/dev/video2
       # - /dev/video3:/dev/video3
 
     # Port mappings

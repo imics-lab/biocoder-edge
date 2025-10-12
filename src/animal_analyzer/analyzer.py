@@ -36,6 +36,14 @@ class AnimalAnalyzer:
         # YOLO model will be loaded in start() method (required for 'spawn' multiprocessing)
         self.model = None
 
+        # Track which video codec works on this system (will be detected on first write)
+        self.working_codec = None
+        self.codec_candidates = [
+            ('mp4v', '.mp4'),  # MPEG-4 Part 2 (requires libxvidcore)
+            ('XVID', '.avi'),  # Xvid MPEG-4
+            ('MJPG', '.avi'),  # Motion JPEG (widely supported)
+        ]
+
         # --- Ensure Directories Exist ---
         os.makedirs(self.config['output_pending_dir'], exist_ok=True)
         os.makedirs(self.config['output_temp_dir'], exist_ok=True)
@@ -290,41 +298,108 @@ class AnimalAnalyzer:
         return final_tracked_objects, next_object_id
 
     def _write_video_part(self, event_id: str, frames: List, part_num: int) -> str:
-        if not frames: return ""
+        """
+        Writes a video part using the best available codec.
+        Tries multiple codecs and remembers which one works for future writes.
+        """
+        if not frames:
+            return ""
         height, width, _ = frames[0].shape
-        temp_path = os.path.join(self.config['output_temp_dir'], f"{event_id}_part_{part_num}.mp4")
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        out = cv2.VideoWriter(temp_path, fourcc, self.output_fps, (width, height))
-        for frame in frames: out.write(frame)
-        out.release()
-        self.logger.info("  > Wrote %s", temp_path)
-        return temp_path
+        
+        # If we already found a working codec, use it
+        if self.working_codec:
+            codecs_to_try = [self.working_codec]
+        else:
+            codecs_to_try = self.codec_candidates
+        
+        for fourcc_name, extension in codecs_to_try:
+            temp_path = os.path.join(self.config['output_temp_dir'], f"{event_id}_part_{part_num}{extension}")
+            
+            try:
+                fourcc = cv2.VideoWriter_fourcc(*fourcc_name)
+                writer = cv2.VideoWriter(temp_path, fourcc, self.output_fps, (width, height))
+                
+                if not writer.isOpened():
+                    self.logger.warning("Codec '%s' failed to initialize VideoWriter", fourcc_name)
+                    continue
+                
+                for frame in frames:
+                    writer.write(frame)
+                writer.release()
+                
+                # Verify the file was actually created and has content
+                if os.path.exists(temp_path) and os.path.getsize(temp_path) > 0:
+                    # Success! Remember this codec for future writes
+                    if not self.working_codec:
+                        self.working_codec = (fourcc_name, extension)
+                        self.logger.info("Detected working video codec: %s (%s)", fourcc_name, extension)
+                    
+                    self.logger.info("  > Wrote %s", temp_path)
+                    return temp_path
+                else:
+                    self.logger.warning("Codec '%s' created no output or empty file", fourcc_name)
+                    # Clean up empty file if it exists
+                    if os.path.exists(temp_path):
+                        try:
+                            os.remove(temp_path)
+                        except OSError:
+                            pass
+                    
+            except Exception as e:
+                self.logger.warning("VideoWriter failed with codec '%s': %s", fourcc_name, e)
+                continue
+        
+        # If we get here, all codecs failed
+        self.logger.error(
+            "Failed to write video part %s. Tried codecs: %s",
+            event_id,
+            ", ".join(name for name, _ in self.codec_candidates)
+        )
+        return ""
 
     def _concatenate_parts(self, event_id: str, temp_parts: List[str]) -> str:
-        if not temp_parts: return ""
+        if not temp_parts:
+            return ""
+        
+        # Filter out empty strings and non-existent files
+        valid_parts = [p for p in temp_parts if p and os.path.exists(p)]
+        if not valid_parts:
+            self.logger.error("No valid temporary video parts found for event %s", event_id)
+            return ""
+        
         final_video_path = os.path.join(self.config['output_pending_dir'], f"{event_id}.mp4")
         file_list_path = os.path.join(self.config['output_temp_dir'], f"{event_id}_filelist.txt")
+        
         with open(file_list_path, 'w') as f:
-            for path in temp_parts: f.write(f"file '{os.path.abspath(path)}'\n")
+            for path in valid_parts:
+                f.write(f"file '{os.path.abspath(path)}'\n")
+        
         command = [
-        'ffmpeg', '-y',
-        '-f', 'concat', '-safe', '0', '-i', file_list_path,
-        '-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100',
-        '-c:v', 'libx264', '-profile:v', 'baseline', '-level', '3.0', '-pix_fmt', 'yuv420p',
-        '-c:a', 'aac', '-shortest',
-        '-movflags', '+faststart',
-        final_video_path
-    ]
+            'ffmpeg', '-y',
+            '-f', 'concat', '-safe', '0', '-i', file_list_path,
+            '-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100',
+            '-c:v', 'libx264', '-profile:v', 'baseline', '-level', '3.0', '-pix_fmt', 'yuv420p',
+            '-c:a', 'aac', '-shortest',
+            '-movflags', '+faststart',
+            final_video_path
+        ]
+        
         try:
             self.logger.info("Running FFmpeg to create %s...", final_video_path)
             subprocess.run(command, check=True, capture_output=True, text=True)
-            self._cleanup_temp_files(temp_parts)
-            os.remove(file_list_path)
+            self._cleanup_temp_files(valid_parts)
+            try:
+                os.remove(file_list_path)
+            except OSError:
+                pass
             return final_video_path
         except subprocess.CalledProcessError as e:
             self.logger.error("Error during FFmpeg concatenation: %s", e.stderr)
-            self._cleanup_temp_files(temp_parts)
-            os.remove(file_list_path)
+            self._cleanup_temp_files(valid_parts)
+            try:
+                os.remove(file_list_path)
+            except OSError:
+                pass
             return ""
 
     def _create_json_metadata(self, event_id: str, video_path: str, detections: List, start_time: float, end_time: float, actual_duration: float) -> None:

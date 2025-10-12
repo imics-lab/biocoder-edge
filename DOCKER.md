@@ -16,15 +16,15 @@ This guide explains how to build and run BioCoder-Edge using Docker Compose on s
 BioCoder-Edge provides two Docker Compose configurations to support different hardware platforms:
 
 ### 1. **docker-compose-gpu.yml** - Generic GPU Machines
-- **Use case:** Desktop/server machines with NVIDIA GPUs (RTX, Tesla, A100, etc.)
-- **Base image:** `nvcr.io/nvidia/pytorch:24.12-py3` (CUDA 12.6.3, PyTorch, torchvision)
-- **Requirements:** NVIDIA GPU driver R560+ supporting CUDA 12.6
+- **Use case:** Desktop/server machines with NVIDIA GPUs (RTX, Tesla, Pascal/Volta/Turing/Ampere)
+- **Base image:** `nvcr.io/nvidia/pytorch:22.12-py3` (PyTorch 1.13.1, CUDA 11.x, cuDNN 8). Use the latest version of the image if you have a newer GPU.
+- **Requirements:** NVIDIA driver supporting CUDA 11.x
 - **Optimizations:** Standard CUDA memory management, larger shared memory (2GB)
 - **Camera support:** Standard USB cameras via V4L2
 
 ### 2. **docker-compose-jetson.yml** - NVIDIA Jetson Devices
 - **Use case:** NVIDIA Jetson Nano, Jetson Orin, and other Jetson family devices
-- **Base image:** `dustynv/l4t-ml:r36.2.0` (JetPack-optimized with L4T)
+- **Base image:** `dustynv/l4t-ml:r36.2.0` (JetPack-optimized with L4T). Use the latest version of the image if you have a newer JetPack.
 - **Requirements:** JetPack SDK installed on host
 - **Optimizations:** `cudaMallocAsync` backend for Jetson memory management, privileged mode for V4L2
 - **Camera support:** USB cameras and CSI cameras with full media controller access
@@ -76,7 +76,7 @@ BioCoder-Edge provides two Docker Compose configurations to support different ha
 ### Platform-Specific Requirements
 
 **For Generic GPU Machines:**
-- NVIDIA GPU driver R560+ (supporting CUDA 12.6)
+- NVIDIA GPU driver supporting CUDA 11.x
 - x86_64 architecture
 
 **For Jetson Devices:**
