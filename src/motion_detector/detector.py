@@ -96,14 +96,13 @@ class MotionDetector:
         elif isinstance(self.video_source, str):
             logger.info("Attempting hardware-accelerated file decoding for: %s", self.video_source)
             
-            # For video files, we need the decoder since they're compressed
-            # Note: This assumes H.264 video in MP4/MOV containers
+            # Try hardware-accelerated pipeline for video files
+            # Uses decodebin to auto-detect format, then routes to nvv4l2decoder
+            # This handles H.264, H.265, and various container formats automatically
             pipeline = (
                 f"filesrc location={self.video_source} ! "
-                "qtdemux ! "  # For MP4/MOV files
-                "h264parse ! "  # For H.264 video
-                "nvv4l2decoder ! "  # Hardware H.264 decoder
-                "nvvidconv ! "
+                "decodebin ! "  # Auto-detect format and use hardware decoder if available
+                "nvvidconv ! "  # Hardware format converter
                 "video/x-raw,format=BGRx ! "
                 "videoconvert ! "
                 "video/x-raw,format=BGR ! "
@@ -115,7 +114,7 @@ class MotionDetector:
                 logger.warning("Hardware decoder pipeline failed, using standard file reader")
                 self.camera = cv2.VideoCapture(self.video_source)
             else:
-                logger.info("Hardware-accelerated file decoder initialized successfully")
+                logger.info("Video file opened successfully with hardware acceleration")
         
         else:
             logger.error("FATAL: Unsupported video source type.")
