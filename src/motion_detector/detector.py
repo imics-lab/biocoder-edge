@@ -72,12 +72,12 @@ class MotionDetector:
             logger.info("Attempting hardware-accelerated camera initialization for device %d", self.video_source)
             
             # GStreamer pipeline with hardware MJPEG decoding
-            # Uses NVMM memory for zero-copy operations between decoder and converter
+            # nvjpegdec provides GPU-accelerated JPEG decoding
+            # nvvidconv provides GPU-accelerated format conversion
             pipeline = (
                 f"v4l2src device=/dev/video{self.video_source} ! "
                 f"image/jpeg,width={cam_width},height={cam_height},framerate={cam_fps}/1 ! "
                 "nvjpegdec ! "  # Hardware JPEG decoder (GPU accelerated!)
-                "video/x-raw(memory:NVMM) ! "  # Use NVIDIA memory for zero-copy
                 "nvvidconv ! "  # Hardware format converter
                 "video/x-raw,format=BGRx ! "
                 "videoconvert ! "
