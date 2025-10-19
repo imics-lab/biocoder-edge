@@ -5,6 +5,7 @@ import time
 import multiprocessing
 from multiprocessing import Process, Queue
 import sys
+import os
 import argparse
 
 # Import the main classes from the source directory
@@ -14,17 +15,32 @@ from src.data_uploader.uploader import DataUploader
 
 def load_config(config_path="config/config.yaml"):
     """
-    Loads the YAML configuration file.
+    Loads the YAML configuration file with environment variable substitution.
+    
+    Supports ${VAR_NAME} syntax in config.yaml. Values are loaded from .env file
+    if present, allowing sensitive credentials to be kept out of version control.
     
     Args:
         config_path (str): The path to the configuration file.
         
     Returns:
-        dict: The configuration dictionary.
+        dict: The configuration dictionary with environment variables substituted.
     """
+    # Load .env file if it exists
+    if os.path.exists('.env'):
+        with open('.env', 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    os.environ[key.strip()] = value.strip()
+    
     try:
         with open(config_path, 'r') as f:
-            return yaml.safe_load(f)
+            config_text = f.read()
+            # Expand ${VAR} and $VAR to their values from environment variables
+            config_text = os.path.expandvars(config_text)
+            return yaml.safe_load(config_text)
     except FileNotFoundError:
         print(f"Error: Configuration file not found at {config_path}")
         sys.exit(1)

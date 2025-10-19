@@ -12,16 +12,17 @@ motion_detector:
 
   # The video source to use for motion detection.
   # Can be a camera index (e.g., 0 for the first camera) or a path to a video file.
-  # Defaults to 0 if not specified.
-  video_source: 0
+  # Loaded from .env file to support different deployments
+  video_source: ${VIDEO_SOURCE}
 
   # Camera hardware acceleration settings
   # These settings are used when video_source is a camera device (integer)
   # Values should match your camera's supported resolutions and framerates
   # Run 'v4l2-ctl -d /dev/videoX --list-formats-ext' to see supported values
-  camera_width: 1920
-  camera_height: 1080
-  camera_fps: 30
+  # Loaded from .env file to support different hardware configurations
+  camera_width: ${CAMERA_WIDTH}
+  camera_height: ${CAMERA_HEIGHT}
+  camera_fps: ${CAMERA_FPS}
 
   blur_kernel_size: [21, 21]
   # The width (in pixels) to which frames are resized for motion analysis.
@@ -41,11 +42,11 @@ motion_detector:
 # =============================================================================
 animal_analyzer:
 
-  device_id: "YOUR_DEVICE_ID"
+  device_id: "${DEVICE_ID}"
 
   location:
-    latitude:  YOUR_LATITUDE    # Replace with your actual latitude
-    longitude: YOUR_LONGITUDE   # Replace with your actual longitude
+    latitude: ${DEVICE_LATITUDE}    # Loaded from .env file
+    longitude: ${DEVICE_LONGITUDE}  # Loaded from .env file
 
   output_fps: 30.0  # The FPS for output video files. Adjust based on your needs.
 
@@ -111,7 +112,8 @@ uploader:
   # Enable or disable the data uploader.
   # When set to false, captured videos and JSON files will remain in the pending_upload folder.
   # When set to true, the uploader will attempt to upload files to the remote server.
-  enabled: false
+  # Loaded from .env file to allow per-deployment control
+  enabled: ${UPLOADER_ENABLED}
 
   # The interval in seconds for the uploader to scan the pending directory for new files.
   scan_interval_seconds: 60 # (300 seconds = 5 minutes)
@@ -119,42 +121,42 @@ uploader:
   # --- SFTP Server Configuration (for file transfer) ---
   sftp:
     # IP address or hostname of your remote cloud server.
-    host: "YOUR_SFTP_HOST"
+    host: "${SFTP_HOST}"
     
     # SFTP port number (usually 22).
-    port: 22
+    port: ${SFTP_PORT}
     
     # The username for the SFTP connection.
-    username: "YOUR_SFTP_USERNAME"
+    username: "${SFTP_USERNAME}"
     
     # The absolute path to the private SSH key for passwordless authentication.
     # Highly recommended over using passwords.
-    ssh_key_path: "/path/to/your/ssh/private/key"
+    ssh_key_path: "${SFTP_SSH_KEY_PATH}"
     
     # The absolute path on the remote server where video files should be stored.
     # The SFTP user must have write permissions to this directory.
-    remote_video_dir: "/path/to/remote/video/directory"
+    remote_video_dir: "${SFTP_REMOTE_VIDEO_DIR}"
     
     # The absolute path on the remote server where JSON metadata files should be stored.
-    remote_json_dir: "/path/to/remote/json/directory"
+    remote_json_dir: "${SFTP_REMOTE_JSON_DIR}"
 
   # --- PostgreSQL Database Configuration ---
   database:
     # IP address or hostname of your database server. Can be the same as SFTP host.
-    host: "YOUR_DB_HOST"
+    host: "${DB_HOST}"
     
     # PostgreSQL port number (usually 5432).
-    port: 5432
+    port: ${DB_PORT}
     
     # The name of the database to connect to.
-    dbname: "YOUR_DATABASE_NAME"
+    dbname: "${DB_NAME}"
     
     # The username for the database connection.
-    user: "YOUR_DB_USERNAME"
+    user: "${DB_USER}"
     
     # The password for the database user.
     # For production, consider using more secure methods like environment variables.
-    password: "YOUR_DB_PASSWORD"
+    password: "${DB_PASSWORD}"
 
 # =============================================================================
 # Live View Configuration (Optional)

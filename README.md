@@ -95,9 +95,18 @@ Follow these instructions to get a copy of the project up and running on your lo
     ```
 
 4.  **Configure the application:**
-    The system is configured using a single YAML file.
-    -   Copy the template: `cp config/config.yaml.template config/config.yaml` (You will need to create the `config.yaml.template` file first).
-    -   Edit `config/config.yaml` and fill in all the necessary parameters, especially the `animal_analyzer` and `uploader` sections with your model paths, server IP addresses, credentials, and paths.
+    
+    BioCoder-Edge uses a two-layer configuration approach:
+    
+    -   **Hardware and credentials** (`.env` file):
+        ```sh
+        cp env.example .env
+        nano .env  # Fill in your camera settings, database credentials, etc.
+        ```
+        The `.env` file is git-ignored and contains deployment-specific settings like camera resolution, database passwords, and device location.
+    
+    -   **Algorithm parameters** (`config/config.yaml`):
+        Edit this file to adjust motion detection thresholds, species of interest, and other algorithm settings. This file is safe to commit to version control.
 
 ## Usage
 
