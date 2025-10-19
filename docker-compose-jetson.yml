@@ -60,7 +60,7 @@ services:
       - ./logs:/app/logs
 
       # Shared memory for live view feature (Linux systems)
-      # - /dev/shm:/dev/shm
+      - /dev/shm:/dev/shm
 
       # Temporary directory for large event processing
       - biocoder-temp:/tmp/biocoder_edge_temp
