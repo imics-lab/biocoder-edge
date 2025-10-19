@@ -8,6 +8,13 @@ echo "==================================================================="
 echo "BioCoder-Edge Docker Container Starting"
 echo "==================================================================="
 
+# Start a virtual X server in the background to satisfy EGL requirements
+# The resolution and color depth don't matter, but are required syntax.
+export DISPLAY=:0
+Xvfb :0 -screen 0 1280x720x24 &
+XVFB_PID=$!
+echo "Virtual X server (Xvfb) started with PID: $XVFB_PID"
+
 # Function to handle shutdown gracefully
 shutdown() {
     echo ""
@@ -27,6 +34,12 @@ shutdown() {
         echo "Stopping main application (PID: $MAIN_PID)..."
         kill -TERM "$MAIN_PID" 2>/dev/null || true
         wait "$MAIN_PID" 2>/dev/null || true
+    fi
+    
+    # Kill the virtual X server
+    if [ -n "$XVFB_PID" ]; then
+        echo "Stopping virtual X server (PID: $XVFB_PID)..."
+        kill -TERM "$XVFB_PID" 2>/dev/null || true
     fi
 
     echo "All processes stopped. Goodbye!"

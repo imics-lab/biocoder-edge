@@ -28,7 +28,7 @@ ENV PYTHONUNBUFFERED=1 \
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
 
 # Install gosu, a lightweight tool for dropping root privileges
-RUN apt-get update && apt-get install -y --no-install-recommends gosu && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends gosu xvfb && rm -rf /var/lib/apt/lists/*
 
 # Create a symbolic link so 'python' can be used to run 'python3' (if not already present)
 RUN ln -sf /usr/bin/python3 /usr/bin/python || true
@@ -37,7 +37,7 @@ RUN ln -sf /usr/bin/python3 /usr/bin/python || true
 # Create Application User (security best practice)
 # -----------------------------------------------------------------------------
 # Create the user and add them to the 'video' group to allow camera access
-RUN groupadd -r biocoder && useradd -r -g biocoder -G video biocoder
+RUN groupadd -r biocoder && useradd -r -g biocoder -G video -m biocoder
 
 # -----------------------------------------------------------------------------
 # Set Working Directory
