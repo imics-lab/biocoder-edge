@@ -27,6 +27,9 @@ ENV PYTHONUNBUFFERED=1 \
 # necessary system dependencies. We only need to ensure ffmpeg is installed.
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
 
+# Install gosu, a lightweight tool for dropping root privileges
+RUN apt-get update && apt-get install -y --no-install-recommends gosu && rm -rf /var/lib/apt/lists/*
+
 # Create a symbolic link so 'python' can be used to run 'python3' (if not already present)
 RUN ln -sf /usr/bin/python3 /usr/bin/python || true
 
@@ -89,11 +92,6 @@ RUN mkdir -p \
 # -----------------------------------------------------------------------------
 # Change ownership of all application files to the biocoder user
 RUN chown -R biocoder:biocoder /app
-
-# -----------------------------------------------------------------------------
-# Switch to Non-Root User
-# -----------------------------------------------------------------------------
-USER biocoder
 
 # -----------------------------------------------------------------------------
 # Health Check

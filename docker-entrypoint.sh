@@ -59,7 +59,7 @@ echo "Starting BioCoder-Edge Main Application..."
 echo "-------------------------------------------------------------------"
 
 # Start the main application in the background as biocoder user
-su -s /bin/bash biocoder -c "cd /app && python main.py" &
+gosu biocoder python main.py &
 MAIN_PID=$!
 echo "Main application started with PID: $MAIN_PID"
 
@@ -71,7 +71,7 @@ echo "Starting Stream Server..."
 echo "-------------------------------------------------------------------"
 
 # Start the stream server in the background as biocoder user
-su -s /bin/bash biocoder -c "cd /app && python scripts/stream_server.py" &
+gosu biocoder python scripts/stream_server.py &
 STREAM_PID=$!
 echo "Stream server started with PID: $STREAM_PID"
 
