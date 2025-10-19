@@ -50,6 +50,9 @@ services:
       - ./data/pending_upload:/app/data/pending_upload
       - ./data/uploaded:/app/data/uploaded
 
+      # Mount the host's X11 socket for EGL initialization
+      - /tmp/.X11-unix:/tmp/.X11-unix
+
       # Logs directory for persistent logging
       - ./logs:/app/logs
 
@@ -96,6 +99,12 @@ services:
 
       # CUDA environment variables
       - CUDA_VISIBLE_DEVICES=0
+
+      # X11 environment variables
+      - DISPLAY=:0 
+
+      # EGL environment variables
+      - EGL_PLATFORM=x11
 
     # Shared memory size - important for GPU operations
     shm_size: '512m'
