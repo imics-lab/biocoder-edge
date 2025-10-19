@@ -71,14 +71,14 @@ class MotionDetector:
             
             logger.info("Attempting hardware-accelerated camera initialization for device %d", self.video_source)
             
-            # GStreamer pipeline with hardware MJPEG decoding
-            # nvjpegdec provides GPU-accelerated JPEG decoding
+            # GStreamer pipeline with software JPEG decoding and hardware format conversion
+            # jpegdec provides CPU-based JPEG decoding (stable and compatible)
             # nvvidconv provides GPU-accelerated format conversion
             pipeline = (
                 f"v4l2src device=/dev/video{self.video_source} ! "
                 f"image/jpeg,width={cam_width},height={cam_height},framerate={cam_fps}/1 ! "
-                "nvjpegdec ! "  # Hardware JPEG decoder (GPU accelerated!)
-                "nvvidconv ! "  # Hardware format converter
+                "jpegdec ! "  # Software JPEG decoder (stable)
+                "nvvidconv ! "  # Hardware format converter (GPU accelerated!)
                 "video/x-raw,format=BGRx ! "
                 "videoconvert ! "
                 "video/x-raw,format=BGR ! "
@@ -87,10 +87,10 @@ class MotionDetector:
             self.camera = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
             
             if not self.camera.isOpened():
-                logger.warning("Hardware-accelerated pipeline failed, falling back to standard camera access")
+                logger.warning("GStreamer pipeline failed, falling back to standard camera access")
                 self.camera = cv2.VideoCapture(self.video_source)
             else:
-                logger.info("Hardware-accelerated MJPEG pipeline initialized successfully")
+                logger.info("Camera initialized successfully with hardware-accelerated format conversion")
         
         # If the source is a file path (string), use hardware decoder
         elif isinstance(self.video_source, str):
