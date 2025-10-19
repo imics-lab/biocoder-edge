@@ -54,6 +54,80 @@ class MotionDetector:
         self.debug_mode = debug_mode
         self.frame_delay = 0
         
+    def initialize_camera(self):
+        """
+        Initialize camera with hardware acceleration support for Jetson.
+        Uses nvjpegdec for hardware-accelerated MJPEG decoding.
+        Falls back to standard methods if hardware pipeline fails.
+        """
+        logger = logging.getLogger('MotionDetector')
+        
+        # Check if the source is a camera device (integer)
+        if isinstance(self.video_source, int):
+            # Get camera settings from config with defaults
+            cam_width = self.config.get('camera_width', 1920)
+            cam_height = self.config.get('camera_height', 1080)
+            cam_fps = self.config.get('camera_fps', 30)
+            
+            logger.info("Attempting hardware-accelerated camera initialization for device %d", self.video_source)
+            
+            # GStreamer pipeline with hardware MJPEG decoding
+            # Uses NVMM memory for zero-copy operations between decoder and converter
+            pipeline = (
+                f"v4l2src device=/dev/video{self.video_source} ! "
+                f"image/jpeg,width={cam_width},height={cam_height},framerate={cam_fps}/1 ! "
+                "nvjpegdec ! "  # Hardware JPEG decoder (GPU accelerated!)
+                "video/x-raw(memory:NVMM) ! "  # Use NVIDIA memory for zero-copy
+                "nvvidconv ! "  # Hardware format converter
+                "video/x-raw,format=BGRx ! "
+                "videoconvert ! "
+                "video/x-raw,format=BGR ! "
+                "appsink drop=true"
+            )
+            self.camera = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
+            
+            if not self.camera.isOpened():
+                logger.warning("Hardware-accelerated pipeline failed, falling back to standard camera access")
+                self.camera = cv2.VideoCapture(self.video_source)
+            else:
+                logger.info("Hardware-accelerated MJPEG pipeline initialized successfully")
+        
+        # If the source is a file path (string), use hardware decoder
+        elif isinstance(self.video_source, str):
+            logger.info("Attempting hardware-accelerated file decoding for: %s", self.video_source)
+            
+            # For video files, we need the decoder since they're compressed
+            # Note: This assumes H.264 video in MP4/MOV containers
+            pipeline = (
+                f"filesrc location={self.video_source} ! "
+                "qtdemux ! "  # For MP4/MOV files
+                "h264parse ! "  # For H.264 video
+                "nvv4l2decoder ! "  # Hardware H.264 decoder
+                "nvvidconv ! "
+                "video/x-raw,format=BGRx ! "
+                "videoconvert ! "
+                "video/x-raw,format=BGR ! "
+                "appsink drop=true"
+            )
+            self.camera = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
+            
+            if not self.camera.isOpened():
+                logger.warning("Hardware decoder pipeline failed, using standard file reader")
+                self.camera = cv2.VideoCapture(self.video_source)
+            else:
+                logger.info("Hardware-accelerated file decoder initialized successfully")
+        
+        else:
+            logger.error("FATAL: Unsupported video source type.")
+            return False
+
+        if not self.camera.isOpened():
+            logger.error("FATAL: Cannot open video source: %s", self.video_source)
+            return False
+        
+        logger.info("Video source opened successfully.")
+        return True
+        
     def start(self, shared_queue: Optional[Queue] = None) -> None:
         """
         Starts the main processing loop of the motion detector.
@@ -76,16 +150,12 @@ class MotionDetector:
         
         logger.info("Initializing video source: %s", self.video_source)
         try:
-            # Use the simple, direct method for opening the camera, which is
-            # now proven to work on the host system.
-            self.camera = cv2.VideoCapture(self.video_source)
-
-            if not self.camera.isOpened():
-                logger.error("FATAL: Cannot open video source: %s in child process.", self.video_source)
+            # Use hardware-accelerated initialization
+            if not self.initialize_camera():
+                logger.error("FATAL: Failed to initialize video source")
                 return
             
-            logger.info("Video source opened successfully.")
-            
+            # Set frame delay for video file playback
             if isinstance(self.video_source, str):
                 fps = self.camera.get(cv2.CAP_PROP_FPS)
                 if fps > 0:

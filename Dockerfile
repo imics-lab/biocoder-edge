@@ -24,8 +24,18 @@ ENV PYTHONUNBUFFERED=1 \
 # Install System Dependencies
 # -----------------------------------------------------------------------------
 # Both base images (dustynv/l4t-ml and nvcr.io/nvidia/pytorch) contain most
-# necessary system dependencies. We only need to ensure ffmpeg is installed.
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
+# necessary system dependencies. We install ffmpeg and GStreamer plugins
+# for hardware-accelerated video processing.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    libgstreamer1.0-0 \
+    gstreamer1.0-tools \
+    gstreamer1.0-plugins-base \
+    gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad \
+    gstreamer1.0-libav \
+    libgstreamer-plugins-base1.0-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install gosu, a lightweight tool for dropping root privileges
 RUN apt-get update && apt-get install -y --no-install-recommends gosu xvfb && rm -rf /var/lib/apt/lists/*
