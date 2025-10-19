@@ -17,17 +17,19 @@ BioCoder-Edge provides two Docker Compose configurations to support different ha
 
 ### 1. **docker-compose-gpu.yml** - Generic GPU Machines
 - **Use case:** Desktop/server machines with NVIDIA GPUs (RTX, Tesla, Pascal/Volta/Turing/Ampere)
-- **Base image:** `nvcr.io/nvidia/pytorch:22.12-py3` (PyTorch 1.13.1, CUDA 11.x, cuDNN 8). Use the latest version of the image if you have a newer GPU.
-- **Requirements:** NVIDIA driver supporting CUDA 11.x
+- **Base image:** `nvcr.io/nvidia/pytorch:22.12-py3` (PyTorch 1.13.1, CUDA 11.x, cuDNN 8)
+- **Requirements:** NVIDIA driver supporting CUDA 11.x (R520+)
 - **Optimizations:** Standard CUDA memory management, larger shared memory (2GB)
 - **Camera support:** Standard USB cameras via V4L2
+- **Video acceleration:** CPU-based decoding (software fallback)
 
 ### 2. **docker-compose-jetson.yml** - NVIDIA Jetson Devices
 - **Use case:** NVIDIA Jetson Nano, Jetson Orin, and other Jetson family devices
-- **Base image:** `dustynv/l4t-ml:r36.2.0` (JetPack-optimized with L4T). Use the latest version of the image if you have a newer JetPack.
+- **Base image:** `dustynv/l4t-ml:r36.2.0` (JetPack-optimized with L4T)
 - **Requirements:** JetPack SDK installed on host
 - **Optimizations:** `cudaMallocAsync` backend for Jetson memory management, privileged mode for V4L2
 - **Camera support:** USB cameras and CSI cameras with full media controller access
+- **Video acceleration:** Hardware-accelerated format conversion via nvvidconv
 
 **Which one should I use?**
 - Use `docker-compose-gpu.yml` for x86_64 machines with standard NVIDIA GPUs

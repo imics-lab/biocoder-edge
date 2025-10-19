@@ -8,6 +8,11 @@
 #   - NVIDIA Container Toolkit configured
 #   - NVIDIA GPU driver supporting CUDA 11.x (R520+)
 #
+# Note on Hardware Acceleration:
+#   - Jetson-specific hardware video decode (nvvidconv, nvv4l2decoder) is not available
+#   - Video decoding will use CPU (software fallback), which is acceptable on x86_64
+#   - GPU is still fully utilized for YOLO inference
+#
 # Usage:
 #   Build and start: docker compose -f docker-compose-gpu.yml up --build -d
 #   View logs:       docker compose -f docker-compose-gpu.yml logs -f
@@ -67,10 +72,11 @@ services:
       # USB Camera creates multiple video devices - map all of them
       # Adjust these based on your camera setup
       - /dev/video0:/dev/video0
-      # Uncomment additional video devices if needed:
       - /dev/video1:/dev/video1
       - /dev/video2:/dev/video2
-      # - /dev/video3:/dev/video3
+      - /dev/video3:/dev/video3
+      # Uncomment additional video devices if needed:
+      # - /dev/video4:/dev/video4
 
     # Port mappings
     ports:
