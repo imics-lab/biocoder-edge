@@ -39,6 +39,9 @@ RUN ln -sf /usr/bin/python3 /usr/bin/python || true
 # Create the user and add them to the 'video' group to allow camera access
 RUN groupadd -r biocoder && useradd -r -g biocoder -G video -m biocoder
 
+RUN mkdir -p /home/biocoder/.config
+RUN chown -R biocoder:biocoder /home/biocoder
+
 # -----------------------------------------------------------------------------
 # Set Working Directory
 # -----------------------------------------------------------------------------
