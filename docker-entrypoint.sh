@@ -56,6 +56,14 @@ if [ ! -f "/app/config/config.yaml" ]; then
     exit 1
 fi
 
+# Check if .env file exists
+if [ ! -f "/app/.env" ]; then
+    echo "ERROR: Environment file not found at /app/.env"
+    echo "Please create .env file from env.example and mount it as a volume."
+    echo "Run: cp env.example .env"
+    exit 1
+fi
+
 # Check if model weights exist
 if [ ! -f "/app/model_weight/best.pt" ]; then
     echo "WARNING: Model weights not found at /app/model_weight/best.pt"

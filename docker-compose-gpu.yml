@@ -51,6 +51,9 @@ services:
       # Configuration file (REQUIRED - edit this file with your settings)
       - ./config/config.yaml:/app/config/config.yaml:ro
 
+      # Environment variables (REQUIRED - contains credentials and hardware settings)
+      - ./.env:/app/.env:ro
+
       # Model weights (REQUIRED - your trained YOLO model)
       - ./model_weight:/app/model_weight:ro
 
