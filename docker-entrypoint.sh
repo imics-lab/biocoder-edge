@@ -78,26 +78,27 @@ chown -R biocoder:biocoder /app/logs /app/data /tmp/biocoder_edge_temp 2>/dev/nu
 # Fix SSH key permissions if mounted (must run as root)
 # SSH keys must be owned by the user running the application and have 600 permissions
 # Since bind-mounted files can't have their ownership changed, we copy them to a writable location
-if [ -d "/home/biocoder/.ssh" ]; then
+if [ -e "/home/biocoder/.ssh" ]; then
     echo "Fixing SSH key permissions..."
-    # Create a temporary directory for SSH keys with correct ownership
-    mkdir -p /tmp/.ssh_keys
-    chown biocoder:biocoder /tmp/.ssh_keys
-    chmod 700 /tmp/.ssh_keys
+    # Create a writable SSH directory for the biocoder user
+    mkdir -p /home/biocoder/.ssh_writable
+    chown biocoder:biocoder /home/biocoder/.ssh_writable
+    chmod 700 /home/biocoder/.ssh_writable
     
-    # Copy all SSH keys to the temporary location
-    if ls /home/biocoder/.ssh/*_key 2>/dev/null || ls /home/biocoder/.ssh/id_* 2>/dev/null; then
-        cp -f /home/biocoder/.ssh/*_key /tmp/.ssh_keys/ 2>/dev/null || true
-        cp -f /home/biocoder/.ssh/id_* /tmp/.ssh_keys/ 2>/dev/null || true
-        
-        # Fix ownership and permissions
-        chown -R biocoder:biocoder /tmp/.ssh_keys
-        chmod 600 /tmp/.ssh_keys/*
-        
-        # Update the SSH directory to point to the writable location
-        rm -rf /home/biocoder/.ssh
-        ln -s /tmp/.ssh_keys /home/biocoder/.ssh
+    # Copy all SSH keys from the mounted location to the writable location
+    if [ -f "/home/biocoder/.ssh/azure_vm2_key" ]; then
+        cp -f /home/biocoder/.ssh/azure_vm2_key /home/biocoder/.ssh_writable/
     fi
+    # Copy other common SSH key formats
+    cp -f /home/biocoder/.ssh/*_key /home/biocoder/.ssh_writable/ 2>/dev/null || true
+    cp -f /home/biocoder/.ssh/id_* /home/biocoder/.ssh_writable/ 2>/dev/null || true
+    
+    # Fix ownership and permissions on the writable copies
+    chown -R biocoder:biocoder /home/biocoder/.ssh_writable
+    chmod 700 /home/biocoder/.ssh_writable
+    chmod 600 /home/biocoder/.ssh_writable/* 2>/dev/null || true
+    
+    echo "SSH keys copied to writable location with correct permissions"
 fi
 
 echo ""
