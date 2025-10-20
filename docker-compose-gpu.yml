@@ -59,8 +59,9 @@ services:
 
       # SSH key for remote access (OPTIONAL - only needed for SFTP uploads)
       # Uncomment and adjust the path to match your SSH private key location
-      # Example: - ~/.ssh/id_rsa:/home/biocoder/.ssh/id_rsa:ro
-      # - ~/.ssh/your_key:/home/biocoder/.ssh/your_key:ro
+      # Note: Do NOT use :ro flag - entrypoint needs to fix permissions
+      # Example: - ~/.ssh/id_rsa:/home/biocoder/.ssh/id_rsa
+      # - ~/.ssh/your_key:/home/biocoder/.ssh/your_key
 
       # Data directories for output and uploads
       - ./data/pending_upload:/app/data/pending_upload
