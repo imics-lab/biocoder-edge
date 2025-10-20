@@ -75,6 +75,15 @@ echo ""
 echo "Fixing permissions on mounted volumes..."
 chown -R biocoder:biocoder /app/logs /app/data /tmp/biocoder_edge_temp 2>/dev/null || true
 
+# Fix SSH key permissions if mounted (must run as root)
+# SSH keys must be owned by the user running the application and have 600 permissions
+if [ -d "/home/biocoder/.ssh" ]; then
+    echo "Fixing SSH key permissions..."
+    chown -R biocoder:biocoder /home/biocoder/.ssh 2>/dev/null || true
+    find /home/biocoder/.ssh -type f -name "*_key" -exec chmod 600 {} \; 2>/dev/null || true
+    find /home/biocoder/.ssh -type f -name "id_*" ! -name "*.pub" -exec chmod 600 {} \; 2>/dev/null || true
+fi
+
 echo ""
 echo "Starting BioCoder-Edge Main Application..."
 echo "-------------------------------------------------------------------"
