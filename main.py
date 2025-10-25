@@ -101,11 +101,17 @@ def main():
         for p in processes:
             p.start()
         
-        # The main process will now wait. The application will run until
-        # it is interrupted by the user (e.g., with Ctrl+C).
-        # We use a simple loop here to keep the main process alive.
+        # Monitor the child processes and initiate a clean shutdown if any of them
+        # terminate unexpectedly. This prevents zombie processes.
         while True:
-            time.sleep(1)
+            time.sleep(5)
+            alive_processes = [p for p in processes if p.is_alive()]
+            if len(alive_processes) < len(processes):
+                print("\n--- A subprocess has terminated unexpectedly ---")
+                for p in processes:
+                    if not p.is_alive():
+                        print(f"Process {p.name} (PID: {p.pid}) exited with code: {p.exitcode}")
+                break # Exit the loop to trigger the finally block for shutdown.
 
     except KeyboardInterrupt:
         print("\n--- Shutdown signal received (Ctrl+C) ---")

@@ -5,6 +5,8 @@ import logging
 from multiprocessing import Queue
 from typing import Dict, Optional, List
 import numpy as np
+import threading
+import queue
 
 
 class MotionDetector:
@@ -54,6 +56,32 @@ class MotionDetector:
         self.debug_mode = debug_mode
         self.frame_delay = 0
         
+    def _read_frame_with_timeout(self, timeout=10.0):
+        """
+        Reads a frame from the camera in a separate thread with a timeout.
+        This prevents the main loop from blocking indefinitely if the camera hangs.
+        """
+        frame_queue = queue.Queue()
+
+        def reader_thread():
+            try:
+                ret, frame = self.camera.read()
+                frame_queue.put((ret, frame))
+            except Exception as e:
+                frame_queue.put((False, e))
+
+        thread = threading.Thread(target=reader_thread)
+        thread.daemon = True
+        thread.start()
+
+        try:
+            ret, frame = frame_queue.get(timeout=timeout)
+            if isinstance(frame, Exception):
+                raise frame
+            return ret, frame
+        except queue.Empty:
+            return False, None
+
     def initialize_camera(self):
         """
         Initialize camera with hardware acceleration support for Jetson.
@@ -195,15 +223,20 @@ class MotionDetector:
         state = "IDLE"
         last_motion_time = 0
         consecutive_failures = 0
-        max_failures = 5
+        max_failures = 10
+        camera_read_timeout = 15.0
 
         while self.is_running:
-            # 1. Read a frame from the camera
-            ret, original_frame = self.camera.read()
+            # --- Watchdog Frame Read ---
+            # If camera.read() blocks, this will timeout and return (False, None),
+            # preventing the entire process from freezing.
+            try:
+                ret, original_frame = self._read_frame_with_timeout(timeout=camera_read_timeout)
+            except Exception as e:
+                logger.error("An unexpected exception occurred during camera.read(): %s", e)
+                ret, original_frame = False, None
             
             # --- Live View Frame Writing (On-Demand) ---
-            # If the feature is enabled and the lock file exists, it means a viewer
-            # is active. Write the latest frame to the RAM disk for consumption.
             should_write_live = False
             if self.live_view_enabled and os.path.exists(self.lock_file_path):
                 try:
@@ -213,7 +246,7 @@ class MotionDetector:
                 except Exception:
                     should_write_live = False
 
-            if should_write_live:
+            if should_write_live and ret:
                 # Resize frame to half size horizontally and vertically
                 height, width = original_frame.shape[:2]
                 resized_frame = cv2.resize(
@@ -248,25 +281,42 @@ class MotionDetector:
                             pass
             
             if not ret:
+                # This block handles both read failures and timeouts.
                 if isinstance(self.video_source, str):
-                    logger.info("End of video file reached. Finalizing event.")
+                    logger.info("End of video file or read error. Finalizing event.")
                     if self.queue and state == "DETECTING":
                         self.queue.put(None)
                     break
                 
                 consecutive_failures += 1
-                logger.error("Failed to grab frame (attempt %d/%d)", consecutive_failures, max_failures)
-                
-                if self.camera.isOpened():
-                    logger.error("Camera is opened but failed to read frame.")
-                else:
-                    logger.error("Camera is no longer opened.")
-            
+                logger.error(
+                    "Failed to grab frame or timed out (attempt %d/%d).",
+                    consecutive_failures,
+                    max_failures
+                )
+
                 if consecutive_failures >= max_failures:
-                    logger.critical("Maximum consecutive failures reached. Exiting loop.")
-                    break
-            
-                time.sleep(0.1)
+                    logger.critical("Max failures reached. Attempting to re-initialize camera...")
+                    if self.camera:
+                        self.camera.release()
+                    
+                    # Enter a loop to periodically attempt camera re-initialization.
+                    reinitialized = False
+                    while not reinitialized and self.is_running:
+                        time.sleep(5.0) # Wait before retrying.
+                        logger.info("Attempting to re-initialize camera...")
+                        if self.initialize_camera():
+                            reinitialized = True
+                            consecutive_failures = 0
+                            logger.info("Camera re-initialized successfully!")
+                        else:
+                            logger.error("Failed to re-initialize camera. Will retry...")
+                    
+                    if not self.is_running: # Exit if stop() was called during retry.
+                        break
+                else:
+                    time.sleep(1.0) # Short delay before next read attempt.
+                
                 continue
             
             consecutive_failures = 0
