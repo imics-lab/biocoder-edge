@@ -96,7 +96,7 @@ animal_analyzer:
   # The maximum number of full-resolution frames to hold in RAM at one time.
   # If an event is longer than this, frames will be temporarily written to disk
   # to prevent running out of memory.
-  ram_frame_limit: 300
+  ram_frame_limit: 700
 
   # The local directory where final video/JSON packages are placed before upload.
   # This path should be relative to the project root or an absolute path.
