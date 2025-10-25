@@ -12,6 +12,7 @@ from scipy.spatial import distance as dist
 from ultralytics import YOLO
 from collections import Counter
 import torch
+from datetime import datetime, timezone
 
 class AnimalAnalyzer:
     """
@@ -414,10 +415,11 @@ class AnimalAnalyzer:
             "deviceId": self.device_id,
             "location": {
                 "latitude": self.location['latitude'],
-                "longitude": self.location['longitude']
+                "longitude": self.location['longitude'],
+                "timezone": self.location.get('timezone', 'UTC')
             },
-            "timestamp_start_utc": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time)),
-            "timestamp_end_utc": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(end_time)),
+            "timestamp_start_utc": datetime.fromtimestamp(start_time, tz=timezone.utc).isoformat(),
+            "timestamp_end_utc": datetime.fromtimestamp(end_time, tz=timezone.utc).isoformat(),
             "local_video_path": video_path,
             "video_duration_seconds": round(actual_duration, 2),
             "event_summary": {

@@ -47,6 +47,7 @@ animal_analyzer:
   location:
     latitude: ${DEVICE_LATITUDE}    # Loaded from .env file
     longitude: ${DEVICE_LONGITUDE}  # Loaded from .env file
+    timezone: "${DEVICE_TIMEZONE}"  # e.g., "America/Chicago", "America/New_York"
 
   output_fps: 30.0  # The FPS for output video files. Adjust based on your needs.
 

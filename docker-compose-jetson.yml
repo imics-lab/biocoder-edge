@@ -43,6 +43,10 @@ services:
       # Configuration file (REQUIRED - edit this file with your settings)
       - ./config/config.yaml:/app/config/config.yaml:ro
 
+      # Mount host timezone files for local time
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+
       # Environment variables (REQUIRED - contains credentials and hardware settings)
       - ./.env:/app/.env:ro
 
@@ -89,9 +93,6 @@ services:
     environment:
       # Use the cudaMallocAsync backend to prevent memory allocation errors on Jetson
       - PYTORCH_CUDA_ALLOC_CONF=backend:cudaMallocAsync
-      
-      # Timezone
-      - TZ=UTC
 
       # Python environment
       - PYTHONUNBUFFERED=1
