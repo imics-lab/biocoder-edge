@@ -275,12 +275,10 @@ class MotionDetector:
                     }
                     exif_bytes = piexif.dump(exif_dict)
 
-                    # Manually construct the full APP1 segment with the EXIF data.
-                    # This includes the APP1 marker, length, 'Exif' identifier, and the data itself.
-                    exif_segment = b'Exif\x00\x00' + exif_bytes
-                    app1_segment = b'\xff\xe1' + (len(exif_segment) + 2).to_bytes(2, 'big') + exif_segment
+                    # Build APP1 segment using exif_bytes (which already includes the 'Exif\x00\x00' header)
+                    app1_segment = b'\xff\xe1' + (len(exif_bytes) + 2).to_bytes(2, 'big') + exif_bytes
 
-                    # Insert the new APP1 segment right after the JPEG's Start Of Image (SOI) marker.
+                    # Insert the APP1 segment right after the JPEG's Start Of Image (SOI) marker
                     jpeg_bytes = buffer.tobytes()
                     jpeg_with_exif = jpeg_bytes[:2] + app1_segment + jpeg_bytes[2:]
 
