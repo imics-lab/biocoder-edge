@@ -7,6 +7,8 @@ from typing import Dict, Optional, List
 import numpy as np
 import threading
 import queue
+from datetime import datetime
+import piexif
 
 
 class MotionDetector:
@@ -247,7 +249,10 @@ class MotionDetector:
                     should_write_live = False
 
             if should_write_live and ret:
-                # Resize frame to half size horizontally and vertically
+                # Get the current time for the timestamp
+                now = datetime.now()
+                
+                # Resize frame for the live view
                 height, width = original_frame.shape[:2]
                 resized_frame = cv2.resize(
                     original_frame,
@@ -255,28 +260,37 @@ class MotionDetector:
                     interpolation=cv2.INTER_AREA,
                 )
 
-                # Encode and atomically replace to avoid readers seeing partial writes
+                # Encode to JPEG format in memory
                 ok, buffer = cv2.imencode(
                     ".jpg",
                     resized_frame,
                     [int(cv2.IMWRITE_JPEG_QUALITY), self.jpeg_quality],
                 )
                 if ok:
+                    # Create EXIF data with the capture time
+                    exif_dict = {
+                        "Exif": {
+                            piexif.ExifIFD.DateTimeOriginal: now.strftime("%Y:%m:%d %H:%M:%S")
+                        }
+                    }
+                    exif_bytes = piexif.dump(exif_dict)
+                    
+                    # Insert the EXIF data into the JPEG buffer
+                    jpeg_with_exif = piexif.insert(exif_bytes, buffer.tobytes())
+
+                    # Atomically write the final image to the RAM disk
                     tmp_path = f"{self.live_frame_path}.tmp"
                     try:
                         with open(tmp_path, "wb") as tmp_file:
-                            tmp_file.write(buffer.tobytes())
+                            tmp_file.write(jpeg_with_exif)
                             tmp_file.flush()
                             os.fsync(tmp_file.fileno())
                         os.replace(tmp_path, self.live_frame_path)
                     except Exception:
-                        # If atomic replace fails for any reason, best-effort fallback
+                        # Fallback if atomic write fails
                         try:
-                            cv2.imwrite(
-                                self.live_frame_path,
-                                resized_frame,
-                                [int(cv2.IMWRITE_JPEG_QUALITY), self.jpeg_quality],
-                            )
+                           with open(self.live_frame_path, "wb") as f:
+                               f.write(jpeg_with_exif)
                         except Exception:
                             pass
             

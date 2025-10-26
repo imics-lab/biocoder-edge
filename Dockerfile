@@ -72,6 +72,9 @@ RUN pip install PyYAML
 # Web server for the optional remote live stream
 RUN pip install Flask==2.2.5
 
+# For EXIF timestamping in live view
+RUN pip install piexif
+
 # -----------------------------------------------------------------------------
 # Copy Application Code
 # -----------------------------------------------------------------------------
