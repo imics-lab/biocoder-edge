@@ -268,33 +268,36 @@ class MotionDetector:
                 )
                 if ok:
                     # Create EXIF data with the capture time
+                    now_str = now.strftime("%Y:%m:%d %H:%M:%S")
                     exif_dict = {
+                        "0th": {
+                            piexif.ImageIFD.DateTime: now_str,
+                        },
                         "Exif": {
-                            piexif.ExifIFD.DateTimeOriginal: now.strftime("%Y:%m:%d %H:%M:%S")
-                        }
+                            piexif.ExifIFD.DateTimeOriginal: now_str,
+                        },
+                        "1st": {},
+                        "thumbnail": None,
                     }
                     exif_bytes = piexif.dump(exif_dict)
 
-                    # Build APP1 segment using exif_bytes (which already includes the 'Exif\x00\x00' header)
-                    app1_segment = b'\xff\xe1' + (len(exif_bytes) + 2).to_bytes(2, 'big') + exif_bytes
-
-                    # Insert the APP1 segment right after the JPEG's Start Of Image (SOI) marker
-                    jpeg_bytes = buffer.tobytes()
-                    jpeg_with_exif = jpeg_bytes[:2] + app1_segment + jpeg_bytes[2:]
-
-                    # Atomically write the final image to the RAM disk
-                    tmp_path = f"{self.live_frame_path}.tmp"
+                    # Write JPEG bytes to a temporary file, then insert EXIF and publish atomically
+                    raw_tmp_path = f"{self.live_frame_path}.rawtmp"
                     try:
-                        with open(tmp_path, "wb") as tmp_file:
-                            tmp_file.write(jpeg_with_exif)
-                            tmp_file.flush()
-                            os.fsync(tmp_file.fileno())
-                        os.replace(tmp_path, self.live_frame_path)
+                        with open(raw_tmp_path, "wb") as raw_file:
+                            raw_file.write(buffer.tobytes())
+                            raw_file.flush()
+                            os.fsync(raw_file.fileno())
+                        
+                        # Insert EXIF into the temporary JPEG file
+                        piexif.insert(exif_bytes, raw_tmp_path)
+                        
+                        # Atomically publish to the live frame path
+                        os.replace(raw_tmp_path, self.live_frame_path)
                     except Exception:
-                        # Fallback if atomic write fails
+                        # Fallback: try publishing the non-EXIF JPEG if insertion fails
                         try:
-                           with open(self.live_frame_path, "wb") as f:
-                               f.write(jpeg_with_exif)
+                            os.replace(raw_tmp_path, self.live_frame_path)
                         except Exception:
                             pass
             

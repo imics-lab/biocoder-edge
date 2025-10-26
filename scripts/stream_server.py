@@ -183,16 +183,20 @@ def timestamp():
         with open(RAM_DISK_PATH, 'rb') as f:
             jpeg_data = f.read()
         
-        exif_dict = piexif.load(jpeg_data)
-        timestamp_str = exif_dict["Exif"][piexif.ExifIFD.DateTimeOriginal].decode("utf-8")
-        dt_object = datetime.strptime(timestamp_str, "%Y:%m:%d %H:%M:%S")
-        formatted_ts = dt_object.strftime('%Y-%m-%d %H:%M:%S')
-        
-        return jsonify({"timestamp": formatted_ts})
+        try:
+            exif_dict = piexif.load(jpeg_data)
+            timestamp_raw = exif_dict["Exif"][piexif.ExifIFD.DateTimeOriginal]
+            if isinstance(timestamp_raw, bytes):
+                timestamp_str = timestamp_raw.decode("utf-8", errors="ignore")
+            else:
+                timestamp_str = str(timestamp_raw)
+            dt_object = datetime.strptime(timestamp_str, "%Y:%m:%d %H:%M:%S")
+            formatted_ts = dt_object.strftime('%Y-%m-%d %H:%M:%S')
+            return jsonify({"timestamp": formatted_ts})
+        except Exception:
+            return jsonify({"error": "No timestamp in frame"}), 200
     except (FileNotFoundError, OSError):
         return jsonify({"error": "Frame not available"}), 404
-    except (KeyError, ValueError, piexif.InvalidImageDataError):
-        return jsonify({"error": "No timestamp in frame"}), 500
 
 @app.route('/video_feed')
 def video_feed():
