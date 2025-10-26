@@ -11,6 +11,7 @@ from flask import Flask, Response, abort, jsonify
 import piexif
 import numpy as np
 from datetime import datetime
+import json
 
 # Adjust Python path to import from the root directory
 sys.path.append('..')
@@ -153,24 +154,22 @@ def index():
         </div>
 
         <script>
-            function fetchTimestamp() {{
-                fetch('/timestamp')
-                    .then(response => response.json())
-                    .then(data => {{
-                        const timestampDiv = document.getElementById('timestamp');
-                        if (data.error) {{
-                            timestampDiv.textContent = data.error;
-                        }} else {{
-                            timestampDiv.textContent = data.timestamp;
-                        }}
-                    }})
-                    .catch(error => {{
-                        document.getElementById('timestamp').textContent = 'Error fetching time';
-                        console.error('Error:', error);
-                    }});
-            }}
-            // Fetch the timestamp every 500 milliseconds
-            setInterval(fetchTimestamp, 500);
+            const tsDiv = document.getElementById('timestamp');
+            const es = new EventSource('/timestamp_stream');
+            es.onmessage = (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    if (data.timestamp) {
+                        tsDiv.textContent = data.timestamp;
+                    } else if (data.error) {
+                        tsDiv.textContent = data.error;
+                    }
+                } catch (_) {}
+            };
+            es.onerror = () => {
+                // Optional: display disconnected state
+                // tsDiv.textContent = 'Disconnected';
+            };
         </script>
       </body>
     </html>
@@ -197,6 +196,47 @@ def timestamp():
             return jsonify({"error": "No timestamp in frame"}), 200
     except (FileNotFoundError, OSError):
         return jsonify({"error": "Frame not available"}), 404
+
+@app.route('/timestamp_stream')
+def timestamp_stream():
+    """Server-Sent Events endpoint that emits a timestamp when the frame changes."""
+    def event_stream():
+        last_mtime = 0.0
+        last_heartbeat = 0.0
+        while True:
+            try:
+                mtime = os.path.getmtime(RAM_DISK_PATH)
+            except OSError:
+                mtime = 0.0
+            now = time.time()
+
+            if mtime and mtime != last_mtime:
+                try:
+                    with open(RAM_DISK_PATH, 'rb') as f:
+                        jpeg_data = f.read()
+                    exif_dict = piexif.load(jpeg_data)
+                    ts_raw = exif_dict["Exif"][piexif.ExifIFD.DateTimeOriginal]
+                    ts_str = ts_raw.decode('utf-8', errors='ignore') if isinstance(ts_raw, (bytes, bytearray)) else str(ts_raw)
+                    dt = datetime.strptime(ts_str, "%Y:%m:%d %H:%M:%S")
+                    formatted = dt.strftime('%Y-%m-%d %H:%M:%S')
+                    payload = {"timestamp": formatted}
+                except Exception:
+                    payload = {"error": "No timestamp in frame"}
+                yield f"data: {json.dumps(payload)}\n\n"
+                last_mtime = mtime
+                last_heartbeat = now
+            elif now - last_heartbeat >= 15.0:
+                # Heartbeat to keep the connection alive
+                yield ": keep-alive\n\n"
+                last_heartbeat = now
+            time.sleep(0.2)
+
+    headers = {
+        'Cache-Control': 'no-cache',
+        'X-Accel-Buffering': 'no',
+        'Content-Type': 'text/event-stream'
+    }
+    return Response(event_stream(), headers=headers)
 
 @app.route('/video_feed')
 def video_feed():
