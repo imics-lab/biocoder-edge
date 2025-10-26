@@ -7,7 +7,7 @@ import os
 import threading
 import atexit
 import signal
-from flask import Flask, Response, abort
+from flask import Flask, Response, abort, jsonify
 import piexif
 import numpy as np
 from datetime import datetime
@@ -44,8 +44,7 @@ def frame_generator():
     It also manages the viewer lock file.
     """
     global viewer_count
-    last_frame_bytes = None
-
+    
     try:
         # On first connection, create the lock file
         with viewer_lock:
@@ -61,64 +60,22 @@ def frame_generator():
             viewer_count += 1
 
         while True:
-            frame_bytes = None
-            ts_text = "No timestamp available"
-            
             try:
-                # Read the latest frame from the RAM disk.
+                # This generator now simply reads the latest frame and streams it.
+                # All decoding and rendering is handled by the browser and JavaScript.
                 with open(RAM_DISK_PATH, 'rb') as f:
-                    jpeg_data = f.read()
-
-                # Extract timestamp from EXIF data.
-                try:
-                    exif_dict = piexif.load(jpeg_data)
-                    timestamp_str = exif_dict["Exif"][piexif.ExifIFD.DateTimeOriginal].decode("utf-8")
-                    dt_object = datetime.strptime(timestamp_str, "%Y:%m:%d %H:%M:%S")
-                    ts_text = dt_object.strftime('%Y-%m-%d %H:%M:%S')
-                except (KeyError, ValueError, piexif.InvalidImageDataError):
-                    # Handle cases where EXIF data is missing or corrupt.
-                    pass 
-
-                # Decode the image to draw the timestamp on it.
-                img_np = np.frombuffer(jpeg_data, np.uint8)
-                img = cv2.imdecode(img_np, cv2.IMREAD_COLOR)
+                    frame_bytes = f.read()
                 
-                if img is not None:
-                    # Add a semi-transparent background for the text for better readability.
-                    (text_width, text_height), _ = cv2.getTextSize(ts_text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
-                    overlay = img.copy()
-                    cv2.rectangle(overlay, (5, 5), (10 + text_width, 10 + text_height + 5), (0, 0, 0), -1)
-                    alpha = 0.6  # Transparency factor.
-                    img = cv2.addWeighted(overlay, alpha, img, 1 - alpha, 0)
-                    
-                    # Put the timestamp text on the image.
-                    cv2.putText(img, ts_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
-                    
-                    # Re-encode the image to JPEG format for streaming.
-                    ok, buffer = cv2.imencode('.jpg', img, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
-                    if ok:
-                        frame_bytes = buffer.tobytes()
-
-            except (FileNotFoundError, OSError):
-                # If the file doesn't exist, wait briefly.
-                time.sleep(0.05)
-                pass
-
-            # Fallback to the last successfully processed frame to avoid stream gaps.
-            if frame_bytes is None and last_frame_bytes is not None:
-                frame_bytes = last_frame_bytes
-
-            if frame_bytes is not None:
-                last_frame_bytes = frame_bytes
                 yield (
                     b'--frame\r\n'
                     b'Content-Type: image/jpeg\r\n'
                     + f'Content-Length: {len(frame_bytes)}\r\n\r\n'.encode('ascii')
                     + frame_bytes + b'\r\n'
                 )
-            else:
-                # If there's no frame at all, wait before trying again.
+            except (FileNotFoundError, OSError):
+                # If the file doesn't exist, wait briefly and continue.
                 time.sleep(0.1)
+                continue
 
             # Simple sleep to aim for the target FPS.
             time.sleep(1.0 / TARGET_FPS if TARGET_FPS > 0 else 0.05)
@@ -144,23 +101,98 @@ def frame_generator():
 
 @app.route('/')
 def index():
-    """A simple homepage that displays the video stream."""
+    """A simple homepage that displays the video stream and timestamp."""
     return f"""
     <html>
       <head>
         <title>BioCoder-Edge Live Stream</title>
         <style>
-            body {{ font-family: sans-serif; background-color: #282c34; color: white; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; }}
+            body {{ 
+                font-family: sans-serif; 
+                background-color: #1a1a1a; 
+                color: white; 
+                margin: 0; 
+                padding: 0; 
+                display: flex; 
+                flex-direction: column; 
+                align-items: center; 
+            }}
             h1 {{ margin-top: 20px; }}
-            img {{ max-width: 90%; margin-top: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); }}
+            .stream-container {{
+                position: relative;
+                max-width: 90%;
+                margin-top: 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.7);
+                background-color: #000;
+            }}
+            img {{ 
+                display: block;
+                width: 100%;
+                border-radius: 8px;
+            }}
+            #timestamp {{
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                background-color: rgba(0, 0, 0, 0.6);
+                color: #fff;
+                padding: 5px 10px;
+                border-radius: 5px;
+                font-size: 16px;
+                font-weight: bold;
+                text-shadow: 1px 1px 2px #000;
+            }}
         </style>
       </head>
       <body>
         <h1>Live Camera Feed</h1>
-        <img src="/video_feed">
+        <div class="stream-container">
+            <img src="/video_feed">
+            <div id="timestamp">Loading timestamp...</div>
+        </div>
+
+        <script>
+            function fetchTimestamp() {{
+                fetch('/timestamp')
+                    .then(response => response.json())
+                    .then(data => {{
+                        const timestampDiv = document.getElementById('timestamp');
+                        if (data.error) {{
+                            timestampDiv.textContent = data.error;
+                        }} else {{
+                            timestampDiv.textContent = data.timestamp;
+                        }}
+                    }})
+                    .catch(error => {{
+                        document.getElementById('timestamp').textContent = 'Error fetching time';
+                        console.error('Error:', error);
+                    }});
+            }}
+            // Fetch the timestamp every 500 milliseconds
+            setInterval(fetchTimestamp, 500);
+        </script>
       </body>
     </html>
     """
+
+@app.route('/timestamp')
+def timestamp():
+    """Endpoint to get the latest frame's timestamp."""
+    try:
+        with open(RAM_DISK_PATH, 'rb') as f:
+            jpeg_data = f.read()
+        
+        exif_dict = piexif.load(jpeg_data)
+        timestamp_str = exif_dict["Exif"][piexif.ExifIFD.DateTimeOriginal].decode("utf-8")
+        dt_object = datetime.strptime(timestamp_str, "%Y:%m:%d %H:%M:%S")
+        formatted_ts = dt_object.strftime('%Y-%m-%d %H:%M:%S')
+        
+        return jsonify({"timestamp": formatted_ts})
+    except (FileNotFoundError, OSError):
+        return jsonify({"error": "Frame not available"}), 404
+    except (KeyError, ValueError, piexif.InvalidImageDataError):
+        return jsonify({"error": "No timestamp in frame"}), 500
 
 @app.route('/video_feed')
 def video_feed():

@@ -275,8 +275,11 @@ class MotionDetector:
                     }
                     exif_bytes = piexif.dump(exif_dict)
                     
-                    # Insert the EXIF data into the JPEG buffer
-                    jpeg_with_exif = piexif.insert(exif_bytes, buffer.tobytes())
+                    # Manually insert the EXIF data into the JPEG buffer.
+                    # A JPEG file starts with a Start Of Image (SOI) marker (0xFFD8).
+                    # The EXIF data (as an APP1 segment) must be inserted directly after it.
+                    jpeg_bytes = buffer.tobytes()
+                    jpeg_with_exif = jpeg_bytes[:2] + exif_bytes + jpeg_bytes[2:]
 
                     # Atomically write the final image to the RAM disk
                     tmp_path = f"{self.live_frame_path}.tmp"

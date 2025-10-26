@@ -8,8 +8,10 @@ echo "==================================================================="
 echo "BioCoder-Edge Docker Container Starting"
 echo "==================================================================="
 
-# Start a virtual X server in the background to satisfy EGL requirements
+# Start a virtual X server in the background to satisfy EGL requirements.
 # The resolution and color depth don't matter, but are required syntax.
+# Clean up any stale lock files to ensure Xvfb can start after a crash.
+rm -f /tmp/.X0-lock
 export DISPLAY=:0
 Xvfb :0 -screen 0 1280x720x24 &
 XVFB_PID=$!
