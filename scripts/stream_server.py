@@ -1,20 +1,16 @@
-import cv2
 import time
 import yaml
 import argparse
-import sys
 import os
 import threading
 import atexit
 import signal
-from flask import Flask, Response, abort, jsonify
+from flask import Flask, Response, abort
 import piexif
-import numpy as np
 from datetime import datetime
 import json
 
-# Adjust Python path to import from the root directory
-sys.path.append('..')
+# No path adjustments required
 
 # Global variable to track the number of connected viewers
 viewer_count = 0
@@ -35,8 +31,23 @@ RAM_DISK_PATH = live_view_config.get('ram_disk_path', '/dev/shm/live_frame.jpg')
 LOCK_FILE_PATH = live_view_config.get('lock_file_path', '/dev/shm/viewer_active.lock')
 LOCK_HEARTBEAT_SECONDS = float(live_view_config.get('lock_heartbeat_seconds', 0.5))
 TARGET_FPS = float(live_view_config.get('target_fps', 15))
-MIN_FPS = float(live_view_config.get('min_fps', 5))
 MAX_VIEWERS = int(live_view_config.get('max_viewers', 1))
+
+# Timing constants
+FRAME_CHECK_INTERVAL = 0.2
+MISSING_FRAME_RETRY = 0.1
+SSE_HEARTBEAT_SECONDS = 15.0
+
+def _read_exif_timestamp(jpeg_bytes: bytes):
+    """Returns a formatted timestamp from EXIF or None if unavailable."""
+    try:
+        exif_dict = piexif.load(jpeg_bytes)
+        ts_raw = exif_dict["Exif"][piexif.ExifIFD.DateTimeOriginal]
+        ts_str = ts_raw.decode('utf-8', errors='ignore') if isinstance(ts_raw, (bytes, bytearray)) else str(ts_raw)
+        dt = datetime.strptime(ts_str, "%Y:%m:%d %H:%M:%S")
+        return dt.strftime('%Y-%m-%d %H:%M:%S')
+    except Exception:
+        return None
 
 def frame_generator():
     """
@@ -60,6 +71,7 @@ def frame_generator():
                     pass
             viewer_count += 1
 
+        last_lock_heartbeat = 0.0
         while True:
             try:
                 # This generator now simply reads the latest frame and streams it.
@@ -75,7 +87,7 @@ def frame_generator():
                 )
             except (FileNotFoundError, OSError):
                 # If the file doesn't exist, wait briefly and continue.
-                time.sleep(0.1)
+                time.sleep(MISSING_FRAME_RETRY)
                 continue
 
             # Simple sleep to aim for the target FPS.
@@ -84,7 +96,9 @@ def frame_generator():
             # Heartbeat: refresh lock file mtime so detector knows viewer is active.
             try:
                 now = time.time()
-                os.utime(LOCK_FILE_PATH, (now, now))
+                if now - last_lock_heartbeat >= LOCK_HEARTBEAT_SECONDS:
+                    os.utime(LOCK_FILE_PATH, (now, now))
+                    last_lock_heartbeat = now
             except Exception:
                 pass
 
@@ -175,28 +189,6 @@ def index():
     </html>
     """
 
-@app.route('/timestamp')
-def timestamp():
-    """Endpoint to get the latest frame's timestamp."""
-    try:
-        with open(RAM_DISK_PATH, 'rb') as f:
-            jpeg_data = f.read()
-        
-        try:
-            exif_dict = piexif.load(jpeg_data)
-            timestamp_raw = exif_dict["Exif"][piexif.ExifIFD.DateTimeOriginal]
-            if isinstance(timestamp_raw, bytes):
-                timestamp_str = timestamp_raw.decode("utf-8", errors="ignore")
-            else:
-                timestamp_str = str(timestamp_raw)
-            dt_object = datetime.strptime(timestamp_str, "%Y:%m:%d %H:%M:%S")
-            formatted_ts = dt_object.strftime('%Y-%m-%d %H:%M:%S')
-            return jsonify({"timestamp": formatted_ts})
-        except Exception:
-            return jsonify({"error": "No timestamp in frame"}), 200
-    except (FileNotFoundError, OSError):
-        return jsonify({"error": "Frame not available"}), 404
-
 @app.route('/timestamp_stream')
 def timestamp_stream():
     """Server-Sent Events endpoint that emits a timestamp when the frame changes."""
@@ -214,22 +206,18 @@ def timestamp_stream():
                 try:
                     with open(RAM_DISK_PATH, 'rb') as f:
                         jpeg_data = f.read()
-                    exif_dict = piexif.load(jpeg_data)
-                    ts_raw = exif_dict["Exif"][piexif.ExifIFD.DateTimeOriginal]
-                    ts_str = ts_raw.decode('utf-8', errors='ignore') if isinstance(ts_raw, (bytes, bytearray)) else str(ts_raw)
-                    dt = datetime.strptime(ts_str, "%Y:%m:%d %H:%M:%S")
-                    formatted = dt.strftime('%Y-%m-%d %H:%M:%S')
-                    payload = {"timestamp": formatted}
+                    formatted = _read_exif_timestamp(jpeg_data)
+                    payload = {"timestamp": formatted} if formatted else {"error": "No timestamp in frame"}
                 except Exception:
                     payload = {"error": "No timestamp in frame"}
                 yield f"data: {json.dumps(payload)}\n\n"
                 last_mtime = mtime
                 last_heartbeat = now
-            elif now - last_heartbeat >= 15.0:
+            elif now - last_heartbeat >= SSE_HEARTBEAT_SECONDS:
                 # Heartbeat to keep the connection alive
                 yield ": keep-alive\n\n"
                 last_heartbeat = now
-            time.sleep(0.2)
+            time.sleep(FRAME_CHECK_INTERVAL)
 
     headers = {
         'Cache-Control': 'no-cache',
