@@ -103,12 +103,12 @@ def frame_generator():
 @app.route('/')
 def index():
     """A simple homepage that displays the video stream and timestamp."""
-    return f"""
+    return """
     <html>
       <head>
         <title>BioCoder-Edge Live Stream</title>
         <style>
-            body {{ 
+            body { 
                 font-family: sans-serif; 
                 background-color: #1a1a1a; 
                 color: white; 
@@ -117,22 +117,22 @@ def index():
                 display: flex; 
                 flex-direction: column; 
                 align-items: center; 
-            }}
-            h1 {{ margin-top: 20px; }}
-            .stream-container {{
+            }
+            h1 { margin-top: 20px; }
+            .stream-container {
                 position: relative;
                 max-width: 90%;
                 margin-top: 20px;
                 border-radius: 8px;
                 box-shadow: 0 4px 12px rgba(0,0,0,0.7);
                 background-color: #000;
-            }}
-            img {{ 
+            }
+            img { 
                 display: block;
                 width: 100%;
                 border-radius: 8px;
-            }}
-            #timestamp {{
+            }
+            #timestamp {
                 position: absolute;
                 top: 10px;
                 left: 10px;
@@ -143,7 +143,7 @@ def index():
                 font-size: 16px;
                 font-weight: bold;
                 text-shadow: 1px 1px 2px #000;
-            }}
+            }
         </style>
       </head>
       <body>
