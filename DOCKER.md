@@ -110,11 +110,15 @@ For desktop/server machines with standard NVIDIA GPUs (RTX, Tesla, A100, etc.):
     ```bash
     docker compose -f docker-compose-gpu.yml logs -f
     ```
+6. **Clean logs**:
+    ```bash
+    sudo truncate -s 0 $(docker inspect --format='{{.LogPath}}' biocoder-edge-gpu)
+    ```
 
-6.  **Access Live View**:
+7.  **Access Live View**:
     Once the container is running, the live view is available at `http://<YOUR_DEVICE_IP>:8080`.
 
-7.  **Stop the application**:
+8.  **Stop the application**:
     ```bash
     docker compose -f docker-compose-gpu.yml down
     ```
@@ -144,11 +148,14 @@ For NVIDIA Jetson devices (Jetson Nano, Jetson Orin, etc.):
     ```bash
     docker compose -f docker-compose-jetson.yml logs -f
     ```
-
-6.  **Access Live View**:
+6. **Clean logs**:
+    ```bash
+    sudo truncate -s 0 $(docker inspect --format='{{.LogPath}}' biocoder-edge-gpu)
+    ```
+7.  **Access Live View**:
     Once the container is running, the live view is available at `http://<YOUR_JETSON_IP>:8080`.
 
-7.  **Stop the application**:
+8.  **Stop the application**:
     ```bash
     docker compose -f docker-compose-jetson.yml down
     ```
