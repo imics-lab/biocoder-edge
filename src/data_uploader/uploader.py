@@ -107,15 +107,16 @@ class DataUploader:
             # It sets the status to 'pending'.
             sql_insert = """
                 INSERT INTO events (event_id, device_id, timestamp_start_utc, timestamp_end_utc, 
-                                    video_duration_seconds, primary_species, status, timezone)
-                VALUES (%s, %s, %s, %s, %s, %s, 'pending', %s)
+                                    video_duration_seconds, primary_species, status, timezone, latitude, longitude)
+                VALUES (%s, %s, %s, %s, %s, %s, 'pending', %s, %s, %s)
                 ON CONFLICT (event_id) DO NOTHING;
             """
             # Using ON CONFLICT prevents errors if we retry a job where INSERT succeeded but a later step failed.
             cursor.execute(sql_insert, (
                 metadata['eventId'], metadata['deviceId'], metadata['timestamp_start_utc'],
                 metadata['timestamp_end_utc'], metadata['video_duration_seconds'],
-                metadata['event_summary']['primary_species'], metadata['location']['timezone']
+                metadata['event_summary']['primary_species'], metadata['location']['timezone'],
+                metadata['location']['latitude'], metadata['location']['longitude']
             ))
             db_conn.commit()
             logger.info("  > DB record inserted/ensured in 'pending' state.")
