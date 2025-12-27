@@ -24,6 +24,8 @@ This approach ensures that the power-hungry GPU and network components are only 
 
 The system includes an optional, on-demand live viewing feature. To use it, you must first set `enabled: true` in the `live_view` section of your `config.yaml`.
 
+**Data Usage Note:** To prevent accidental high data usage on LTE connections, the live stream is limited by a timer (default 60 seconds). When the timer expires, the stream pauses and must be manually refreshed. You can adjust this limit via `stream_timeout_seconds` in `config.yaml`.
+
 The main `biocoder-edge` application must be running for this feature to work.
 
 ### Local Viewing (On the Jetson Desktop)

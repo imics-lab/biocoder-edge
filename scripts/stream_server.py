@@ -32,6 +32,7 @@ LOCK_FILE_PATH = live_view_config.get('lock_file_path', '/dev/shm/viewer_active.
 LOCK_HEARTBEAT_SECONDS = float(live_view_config.get('lock_heartbeat_seconds', 0.5))
 TARGET_FPS = float(live_view_config.get('target_fps', 15))
 MAX_VIEWERS = int(live_view_config.get('max_viewers', 1))
+STREAM_TIMEOUT_SECONDS = float(live_view_config.get('stream_timeout_seconds', 60))
 
 # Timing constants
 FRAME_CHECK_INTERVAL = 0.2
@@ -72,7 +73,12 @@ def frame_generator():
             viewer_count += 1
 
         last_lock_heartbeat = 0.0
+        start_time = time.time()
         while True:
+            if time.time() - start_time > STREAM_TIMEOUT_SECONDS:
+                print(f"Stream timeout reached ({STREAM_TIMEOUT_SECONDS}s). Stopping MJPEG stream.")
+                break
+
             try:
                 # This generator now simply reads the latest frame and streams it.
                 # All decoding and rendering is handled by the browser and JavaScript.
@@ -117,12 +123,12 @@ def frame_generator():
 @app.route('/')
 def index():
     """A simple homepage that displays the video stream and timestamp."""
-    return """
+    return f"""
     <html>
       <head>
         <title>BioCoder-Edge Live Stream</title>
         <style>
-            body { 
+            body {{ 
                 font-family: sans-serif; 
                 background-color: #1a1a1a; 
                 color: white; 
@@ -131,22 +137,22 @@ def index():
                 display: flex; 
                 flex-direction: column; 
                 align-items: center; 
-            }
-            h1 { margin-top: 20px; }
-            .stream-container {
+            }}
+            h1 {{ margin-top: 20px; }}
+            .stream-container {{
                 position: relative;
                 max-width: 90%;
                 margin-top: 20px;
                 border-radius: 8px;
                 box-shadow: 0 4px 12px rgba(0,0,0,0.7);
                 background-color: #000;
-            }
-            img { 
+            }}
+            img {{ 
                 display: block;
                 width: 100%;
                 border-radius: 8px;
-            }
-            #timestamp {
+            }}
+            #timestamp {{
                 position: absolute;
                 top: 10px;
                 left: 10px;
@@ -157,7 +163,48 @@ def index():
                 font-size: 16px;
                 font-weight: bold;
                 text-shadow: 1px 1px 2px #000;
-            }
+            }}
+            #timer {{
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                background-color: rgba(220, 53, 69, 0.8);
+                color: #fff;
+                padding: 5px 10px;
+                border-radius: 5px;
+                font-size: 14px;
+                font-weight: bold;
+            }}
+            .overlay {{
+                position: absolute;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0,0,0,0.85);
+                display: none;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                border-radius: 8px;
+                z-index: 10;
+                text-align: center;
+                padding: 20px;
+            }}
+            .overlay p {{
+                font-size: 18px;
+                margin-bottom: 20px;
+            }}
+            .overlay button {{
+                padding: 12px 24px;
+                font-size: 16px;
+                cursor: pointer;
+                background: #007bff;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                transition: background 0.2s;
+            }}
+            .overlay button:hover {{
+                background: #0056b3;
+            }}
         </style>
       </head>
       <body>
@@ -165,25 +212,57 @@ def index():
         <div class="stream-container">
             <img src="/video_feed">
             <div id="timestamp">Loading timestamp...</div>
+            <div id="timer"></div>
+            <div id="overlay" class="overlay">
+                <p>Stream paused after {int(STREAM_TIMEOUT_SECONDS)}s to save data budget.</p>
+                <button onclick="window.location.reload()">Refresh Stream</button>
+            </div>
         </div>
 
         <script>
             const tsDiv = document.getElementById('timestamp');
-            const es = new EventSource('/timestamp_stream');
-            es.onmessage = (e) => {
-                try {
+            const timerDiv = document.getElementById('timer');
+            const overlay = document.getElementById('overlay');
+            const timeoutSeconds = {STREAM_TIMEOUT_SECONDS};
+            let timeLeft = Math.floor(timeoutSeconds);
+
+            const updateTimer = () => {{
+                if (timeLeft <= 0) {{
+                    timerDiv.textContent = 'Expired';
+                    overlay.style.display = 'flex';
+                    if (window.es) window.es.close();
+                    return true;
+                }}
+                timerDiv.textContent = `Expires in: ${{timeLeft}}s`;
+                return false;
+            }};
+
+            updateTimer();
+            const countdown = setInterval(() => {{
+                timeLeft--;
+                if (updateTimer()) {{
+                    clearInterval(countdown);
+                }}
+            }}, 1000);
+
+            window.es = new EventSource('/timestamp_stream');
+            window.es.onmessage = (e) => {{
+                try {{
                     const data = JSON.parse(e.data);
-                    if (data.timestamp) {
+                    if (data.timestamp) {{
                         tsDiv.textContent = data.timestamp;
-                    } else if (data.error) {
+                    }} else if (data.error) {{
                         tsDiv.textContent = data.error;
-                    }
-                } catch (_) {}
-            };
-            es.onerror = () => {
+                        if (data.error === 'Stream expired') {{
+                             overlay.style.display = 'flex';
+                             window.es.close();
+                        }}
+                    }}
+                }} catch (_) {{}}
+            }};
+            window.es.onerror = () => {{
                 // Optional: display disconnected state
-                // tsDiv.textContent = 'Disconnected';
-            };
+            }};
         </script>
       </body>
     </html>
@@ -195,12 +274,17 @@ def timestamp_stream():
     def event_stream():
         last_mtime = 0.0
         last_heartbeat = 0.0
+        start_time = time.time()
         while True:
+            now = time.time()
+            if now - start_time > STREAM_TIMEOUT_SECONDS:
+                yield f"data: {json.dumps({'error': 'Stream expired'})}\n\n"
+                break
+
             try:
                 mtime = os.path.getmtime(RAM_DISK_PATH)
             except OSError:
                 mtime = 0.0
-            now = time.time()
 
             if mtime and mtime != last_mtime:
                 try:

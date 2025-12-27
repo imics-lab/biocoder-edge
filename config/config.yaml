@@ -193,3 +193,7 @@ live_view:
 
   # How often the stream server should refresh the lock file mtime (seconds).
   lock_heartbeat_seconds: 0.5
+
+  # Maximum duration in seconds a user can watch the live stream before it pauses
+  # to save data budget. Set to 0 for no limit (not recommended for LTE).
+  stream_timeout_seconds: 60
