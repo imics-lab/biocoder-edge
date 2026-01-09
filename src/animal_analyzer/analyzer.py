@@ -135,9 +135,12 @@ class AnimalAnalyzer:
                 for obj_id, obj_data in tracked_objects.items():
                     # Check if this object just became significant
                     if (obj_data['label'] in self.config['species_of_interest'] and
-                        obj_data['frames_seen'] == self.config['event_confirmation_frames']):
+                        obj_data['frames_seen'] == self.config['event_confirmation_frames'] and
+                        not obj_data.get('confirmed', False)):
+                        
                         self.logger.info("  > Confirmed significant object: %s (ID: %s)", obj_data['label'], obj_id)
                         significant_event_detected = True
+                        obj_data['confirmed'] = True
 
                     # If the event is significant, log all new detections of tracked, interesting species
                     if significant_event_detected and obj_data['label'] in self.config['species_of_interest'] and obj_data['just_seen']:
@@ -176,7 +179,7 @@ class AnimalAnalyzer:
                     self._create_json_metadata(event_id, final_video_path, all_confirmed_detections, event_start_time, event_end_time, actual_duration)
             else:
                 self.logger.info("Insignificant event or no frames. Cleaning up temporary files for %s.", event_id)
-                self._cleanup_temp_files(temp_file_parts)
+                # self._cleanup_temp_files(temp_file_parts)
     
     def _get_video_duration(self, video_path: str) -> float:
         """Calculates the precise duration of a video file."""
@@ -397,6 +400,12 @@ class AnimalAnalyzer:
         except subprocess.CalledProcessError as e:
             self.logger.error("Error during FFmpeg concatenation: %s", e.stderr)
             self._cleanup_temp_files(valid_parts)
+            # Clean up potentially broken output file
+            if os.path.exists(final_video_path):
+                try:
+                    os.remove(final_video_path)
+                except OSError:
+                    pass
             try:
                 os.remove(file_list_path)
             except OSError:

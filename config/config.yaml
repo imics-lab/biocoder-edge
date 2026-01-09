@@ -103,8 +103,9 @@ animal_analyzer:
   output_pending_dir: "data/pending_upload/"
 
   # A directory for storing temporary video parts for very long events.
-  # This should be a path with fast I/O if possible (like /tmp).
-  output_temp_dir: "/tmp/biocoder_edge_temp/"
+  # Using a local directory instead of /tmp to prevent RAM disk exhaustion 
+  # when keeping files for debugging.
+  output_temp_dir: "data/temp_debug/"
 
 # =============================================================================
 # Module C: Data Uploader Configuration
