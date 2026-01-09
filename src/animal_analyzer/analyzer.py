@@ -2,6 +2,7 @@ import cv2
 import time
 import json
 import os
+import shutil
 import subprocess
 import uuid
 import logging
@@ -48,7 +49,8 @@ class AnimalAnalyzer:
         # --- Ensure Directories Exist ---
         os.makedirs(self.config['output_pending_dir'], exist_ok=True)
         os.makedirs(self.config['output_temp_dir'], exist_ok=True)
-        print(f"Output directories ensured at {self.config['output_pending_dir']} and {self.config['output_temp_dir']}")
+        os.makedirs(self.config['debug_temp_dir'], exist_ok=True)
+        print(f"Output directories ensured: {self.config['output_pending_dir']}, {self.config['output_temp_dir']}, and {self.config['debug_temp_dir']}")
         
         # Logger will be initialized in start() method
         self.logger = None
@@ -178,9 +180,25 @@ class AnimalAnalyzer:
                     actual_duration = self._get_video_duration(final_video_path)
                     self._create_json_metadata(event_id, final_video_path, all_confirmed_detections, event_start_time, event_end_time, actual_duration)
             else:
-                self.logger.info("Insignificant event or no frames. Cleaning up temporary files for %s.", event_id)
-                # self._cleanup_temp_files(temp_file_parts)
+                if self.config.get('debug_mode', False):
+                    self.logger.info("Insignificant event or no frames. Moving temporary files to debug directory for %s.", event_id)
+                    self._save_for_debug(temp_file_parts)
+                else:
+                    self.logger.info("Insignificant event or no frames. Cleaning up temporary files for %s.", event_id)
+                    self._cleanup_temp_files(temp_file_parts)
     
+    def _save_for_debug(self, file_paths: List[str]) -> None:
+        """Moves temporary files to a persistent debug directory instead of deleting them."""
+        for path in file_paths:
+            if not path or not os.path.exists(path):
+                continue
+            try:
+                dest = os.path.join(self.config['debug_temp_dir'], os.path.basename(path))
+                shutil.move(path, dest)
+                self.logger.info("  > Debug file saved: %s", dest)
+            except Exception as e:
+                self.logger.warning("Could not move debug file %s: %s", path, e)
+
     def _get_video_duration(self, video_path: str) -> float:
         """Calculates the precise duration of a video file."""
         try:

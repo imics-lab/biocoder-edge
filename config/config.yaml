@@ -64,10 +64,10 @@ animal_analyzer:
     - 'Coyote'
     - 'Domestic_Cat'
     - 'Domestic_Chicken'
-    - 'Domestic_Cow'
+#    - 'Domestic_Cow'
     - 'Domestic_Dog'
     - 'Domestic_Goat'
-    - 'Domestic_Sheep'
+#    - 'Domestic_Sheep'
     - 'Dove_Pigeon'
     - 'Fox'
     - 'Human'
@@ -99,13 +99,19 @@ animal_analyzer:
   ram_frame_limit: 700
 
   # The local directory where final video/JSON packages are placed before upload.
-  # This path should be relative to the project root or an absolute path.
   output_pending_dir: "data/pending_upload/"
 
-  # A directory for storing temporary video parts for very long events.
-  # Using a local directory instead of /tmp to prevent RAM disk exhaustion 
-  # when keeping files for debugging.
-  output_temp_dir: "data/temp_debug/"
+  # --- Debugging Options ---
+  # Set to true to save all motion events (even insignificant ones) for manual inspection.
+  # Set to false for normal operation (deletes insignificant events to save space).
+  debug_mode: true
+
+  # The directory for storing temporary video parts for manual inspection.
+  debug_temp_dir: "data/temp_debug/"
+
+  # A directory for storing temporary video parts DURING detection.
+  # Using /tmp (RAM disk) minimizes disk I/O and wear on the SD card/NVMe.
+  output_temp_dir: "/tmp/biocoder_edge_temp/"
 
 # =============================================================================
 # Module C: Data Uploader Configuration
