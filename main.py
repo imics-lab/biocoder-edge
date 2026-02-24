@@ -82,7 +82,6 @@ def main():
     try:
         motion_detector = MotionDetector(config, video_source=video_source)
         animal_analyzer = AnimalAnalyzer(frame_queue, config)
-        data_uploader = DataUploader(config)
     except KeyError as e:
         print(f"Error: A required key is missing from the configuration file: {e}")
         sys.exit(1)
@@ -92,8 +91,14 @@ def main():
     processes = [
         Process(target=motion_detector.start, args=(frame_queue,)),
         Process(target=animal_analyzer.start),
-        Process(target=data_uploader.start)
     ]
+
+    uploader_enabled = config.get('uploader', {}).get('enabled', True)
+    if uploader_enabled:
+        data_uploader = DataUploader(config)
+        processes.append(Process(target=data_uploader.start))
+    else:
+        print("Data uploader is disabled. Skipping uploader process.")
 
     try:
         # 6. Start all processes
