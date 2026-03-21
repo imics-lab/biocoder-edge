@@ -23,7 +23,13 @@ class DataUploader:
         # Construct the 'uploaded' path relative to the 'pending' path
         self.uploaded_dir = os.path.join(os.path.dirname(self.pending_dir.rstrip('/')), 'uploaded')
         os.makedirs(self.uploaded_dir, exist_ok=True)
-        
+
+        self.failed_dir = os.path.join(os.path.dirname(self.pending_dir.rstrip('/')), 'failed')
+        os.makedirs(self.failed_dir, exist_ok=True)
+
+        self._upload_failures: Dict[str, int] = {}
+        self._max_upload_retries = 3
+
         self.is_running = False
 
     def start(self) -> None:
@@ -76,23 +82,49 @@ class DataUploader:
                 if not self.is_running: break
                 time.sleep(1)
     
+    def _record_failure(self, job_key: str, json_path: str, video_path: str, event_id: str, error_msg: str) -> bool:
+        """
+        Records a failure for a job and moves it to failed/ if max retries exceeded.
+        Returns True if the job was permanently failed, False if it will be retried.
+        """
+        logger = logging.getLogger('DataUploader')
+        count = self._upload_failures.get(job_key, 0) + 1
+        self._upload_failures[job_key] = count
+        if count >= self._max_upload_retries:
+            logger.error(
+                "Giving up on %s after %d failed attempts. Last error: %s. Moving to failed/.",
+                job_key, count, error_msg
+            )
+            self._fail_job(json_path, video_path, event_id)
+            return True
+        logger.error("  > %s (attempt %d/%d). Will retry later.", error_msg, count, self._max_upload_retries)
+        return False
+
     def _process_job(self, json_path: str) -> None:
         """
         Handles the complete upload transaction for a single event package.
-        Uses two separate DB connections to avoid keeping a connection idle 
+        Uses two separate DB connections to avoid keeping a connection idle
         during long SFTP uploads.
         """
         logger = logging.getLogger('DataUploader')
-        logger.info("Processing job -> %s", os.path.basename(json_path))
-        
+        job_key = os.path.basename(json_path)
+        logger.info("Processing job -> %s", job_key)
+
+        event_id = None
+        video_path = None
+
         try:
             # --- Step 1: Read and Validate Local Data ---
             with open(json_path, 'r') as f:
                 metadata = json.load(f)
-            
+
+            event_id = metadata['eventId']
             video_path = metadata.get('local_video_path')
             if not video_path or not os.path.exists(video_path):
-                logger.error("Video file not found for %s. Skipping.", json_path)
+                self._record_failure(
+                    job_key, json_path, None, event_id,
+                    "Video file not found for %s" % json_path
+                )
                 return
 
             # --- Step 2: DB INSERT (Phase 1) ---
@@ -104,7 +136,7 @@ class DataUploader:
                 with db_conn:
                     with db_conn.cursor() as cursor:
                         sql_insert = """
-                            INSERT INTO events (event_id, device_id, timestamp_start_utc, timestamp_end_utc, 
+                            INSERT INTO events (event_id, device_id, timestamp_start_utc, timestamp_end_utc,
                                                 video_duration_seconds, primary_species, status, timezone, latitude, longitude)
                             VALUES (%s, %s, %s, %s, %s, %s, 'pending', %s, %s, %s)
                             ON CONFLICT (event_id) DO NOTHING;
@@ -117,7 +149,10 @@ class DataUploader:
                         ))
                 logger.info("  > DB record ensured in 'pending' state.")
             except psycopg2.Error as e:
-                logger.error("Failed to ensure DB record for %s: %s. Will retry later.", metadata['eventId'], e)
+                self._record_failure(
+                    job_key, json_path, video_path, event_id,
+                    "Failed to ensure DB record: %s" % e
+                )
                 return
             finally:
                 if db_conn:
@@ -133,7 +168,7 @@ class DataUploader:
             ssh_client = None
             try:
                 ssh_client, sftp_client = self._connect_sftp()
-                
+
                 # Smart upload for Video
                 local_video_size = os.path.getsize(video_path)
                 try:
@@ -159,9 +194,12 @@ class DataUploader:
                 except IOError:
                     logger.info("  > Uploading json to %s...", remote_json_path)
                     sftp_client.put(json_path, remote_json_path)
-                
+
             except (paramiko.SSHException, IOError) as e:
-                logger.error("SFTP error for %s: %s. Will retry later.", metadata['eventId'], e)
+                self._record_failure(
+                    job_key, json_path, video_path, event_id,
+                    "SFTP error: %s" % e
+                )
                 return
             finally:
                 if ssh_client:
@@ -177,7 +215,7 @@ class DataUploader:
                         # 4.1 Update main event record
                         logger.info("  > Updating DB record to 'completed'...")
                         sql_update = """
-                            UPDATE events 
+                            UPDATE events
                             SET status = 'completed', remote_video_path = %s, remote_json_path = %s
                             WHERE event_id = %s;
                         """
@@ -190,29 +228,36 @@ class DataUploader:
                         for det in metadata.get('detections', []):
                             lbl = det['label']
                             counts[lbl] = counts.get(lbl, 0) + 1
-                        
+
                         sql_insert_det = """
                             INSERT INTO detections (event_id, detection_json, classes_detected, max_count_per_frame)
                             VALUES (%s, %s, %s, %s)
                             ON CONFLICT (event_id) DO NOTHING;
                         """
                         cursor.execute(sql_insert_det, (
-                            metadata['eventId'], json.dumps(metadata), 
+                            metadata['eventId'], json.dumps(metadata),
                             classes_detected, json.dumps(counts)
                         ))
-                
+
                 # If we get here, everything is done!
-                logger.info("Successfully processed %s. Moving local files.", os.path.basename(json_path))
+                logger.info("Successfully processed %s. Moving local files.", job_key)
                 self._move_local_files(json_path, video_path)
+                self._upload_failures.pop(job_key, None)
 
             except psycopg2.Error as e:
-                logger.error("Failed to finalize DB for %s: %s. Will retry later.", metadata['eventId'], e)
+                self._record_failure(
+                    job_key, json_path, video_path, event_id,
+                    "Failed to finalize DB: %s" % e
+                )
             finally:
                 if db_conn:
                     db_conn.close()
 
         except Exception as e:
-            logger.exception("Unexpected error processing %s: %s", json_path, e)
+            self._record_failure(
+                job_key, json_path, video_path, event_id,
+                "Unexpected error: %s" % e
+            )
 
     def _connect_db(self):
         """Establishes and returns a PostgreSQL database connection."""
@@ -240,3 +285,35 @@ class DataUploader:
             shutil.move(video_path, os.path.join(self.uploaded_dir, os.path.basename(video_path)))
         except (IOError, OSError) as e:
             logger.critical("Failed to move local files after successful upload: %s", e)
+
+    def _fail_job(self, json_path: str, video_path: str, event_id: str) -> None:
+        """Moves a permanently failed job to the 'failed' directory and updates DB status."""
+        logger = logging.getLogger('DataUploader')
+        job_key = os.path.basename(json_path)
+
+        if event_id:
+            db_conn = None
+            try:
+                db_conn = self._connect_db()
+                with db_conn:
+                    with db_conn.cursor() as cursor:
+                        cursor.execute(
+                            "UPDATE events SET status = 'upload_failed' WHERE event_id = %s;",
+                            (event_id,)
+                        )
+                logger.info("  > DB record for %s updated to 'upload_failed'.", event_id)
+            except psycopg2.Error as e:
+                logger.error("Failed to update DB status to 'upload_failed' for %s: %s", event_id, e)
+            finally:
+                if db_conn:
+                    db_conn.close()
+
+        try:
+            shutil.move(json_path, os.path.join(self.failed_dir, os.path.basename(json_path)))
+            if video_path and os.path.exists(video_path):
+                shutil.move(video_path, os.path.join(self.failed_dir, os.path.basename(video_path)))
+            logger.info("  > Files for %s moved to %s.", job_key, self.failed_dir)
+        except (IOError, OSError) as e:
+            logger.critical("Failed to move files to failed/ for %s: %s", job_key, e)
+
+        self._upload_failures.pop(job_key, None)
