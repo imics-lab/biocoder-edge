@@ -24,9 +24,6 @@ class DataUploader:
         self.uploaded_dir = os.path.join(os.path.dirname(self.pending_dir.rstrip('/')), 'uploaded')
         os.makedirs(self.uploaded_dir, exist_ok=True)
 
-        self.failed_dir = os.path.join(os.path.dirname(self.pending_dir.rstrip('/')), 'failed')
-        os.makedirs(self.failed_dir, exist_ok=True)
-
         self._upload_failures: Dict[str, int] = {}
         self._max_upload_retries = 3
 
@@ -66,7 +63,9 @@ class DataUploader:
         while self.is_running:
             logger.info("Scanning %s for new jobs...", self.pending_dir)
             try:
-                job_files = [f for f in os.listdir(self.pending_dir) if f.endswith('.json')]
+                all_files = set(os.listdir(self.pending_dir))
+                job_files = [f for f in all_files
+                             if f.endswith('.json') and (f + '.failed') not in all_files]
                 if not job_files:
                     logger.info("No new jobs found.")
                 
@@ -84,7 +83,7 @@ class DataUploader:
     
     def _record_failure(self, job_key: str, json_path: str, video_path: str, event_id: str, error_msg: str) -> bool:
         """
-        Records a failure for a job and moves it to failed/ if max retries exceeded.
+        Records a failure for a job and marks it as permanently failed if max retries exceeded.
         Returns True if the job was permanently failed, False if it will be retried.
         """
         logger = logging.getLogger('DataUploader')
@@ -92,10 +91,10 @@ class DataUploader:
         self._upload_failures[job_key] = count
         if count >= self._max_upload_retries:
             logger.error(
-                "Giving up on %s after %d failed attempts. Last error: %s. Moving to failed/.",
+                "Giving up on %s after %d failed attempts. Last error: %s. Marking as failed.",
                 job_key, count, error_msg
             )
-            self._fail_job(json_path, video_path, event_id)
+            self._fail_job(json_path, event_id, error_msg)
             return True
         logger.error("  > %s (attempt %d/%d). Will retry later.", error_msg, count, self._max_upload_retries)
         return False
@@ -278,16 +277,27 @@ class DataUploader:
         return ssh_client, sftp_client
 
     def _move_local_files(self, json_path: str, video_path: str) -> None:
-        """Moves successfully uploaded files to the 'uploaded' directory."""
+        """
+        Moves successfully uploaded files to the 'uploaded' directory.
+        Both pending_upload/ and uploaded/ are bind-mounted, so shutil.move works here.
+        If the move fails, the files stay in pending_upload/ — not a data loss risk
+        since they've already been uploaded to the server and recorded in the DB.
+        """
         logger = logging.getLogger('DataUploader')
         try:
             shutil.move(json_path, os.path.join(self.uploaded_dir, os.path.basename(json_path)))
             shutil.move(video_path, os.path.join(self.uploaded_dir, os.path.basename(video_path)))
         except (IOError, OSError) as e:
-            logger.critical("Failed to move local files after successful upload: %s", e)
+            logger.error("Failed to move local files after successful upload: %s. "
+                         "Files remain in pending_upload/ but upload is complete.", e)
 
-    def _fail_job(self, json_path: str, video_path: str, event_id: str) -> None:
-        """Moves a permanently failed job to the 'failed' directory and updates DB status."""
+    def _fail_job(self, json_path: str, event_id: str, error_msg: str) -> None:
+        """
+        Marks a job as permanently failed by creating a .failed marker file next to the
+        original JSON in pending_upload/. The original files are NEVER moved or deleted.
+        The scan loop skips any JSON that has a corresponding .failed marker.
+        To retry, simply delete the .failed marker file.
+        """
         logger = logging.getLogger('DataUploader')
         job_key = os.path.basename(json_path)
 
@@ -308,12 +318,16 @@ class DataUploader:
                 if db_conn:
                     db_conn.close()
 
+        marker_path = json_path + '.failed'
         try:
-            shutil.move(json_path, os.path.join(self.failed_dir, os.path.basename(json_path)))
-            if video_path and os.path.exists(video_path):
-                shutil.move(video_path, os.path.join(self.failed_dir, os.path.basename(video_path)))
-            logger.info("  > Files for %s moved to %s.", job_key, self.failed_dir)
+            with open(marker_path, 'w') as f:
+                f.write("failed_at: %s\nevent_id: %s\nerror: %s\n" % (
+                    time.strftime('%Y-%m-%d %H:%M:%S'), event_id or 'unknown', error_msg
+                ))
+            logger.info("  > Marked %s as permanently failed. Delete %s to retry.",
+                        job_key, os.path.basename(marker_path))
         except (IOError, OSError) as e:
-            logger.critical("Failed to move files to failed/ for %s: %s", job_key, e)
+            logger.error("  > Could not create failure marker for %s: %s. "
+                         "File will be retried on next restart.", job_key, e)
 
         self._upload_failures.pop(job_key, None)
