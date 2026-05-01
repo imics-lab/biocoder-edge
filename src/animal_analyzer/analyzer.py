@@ -399,9 +399,9 @@ class AnimalAnalyzer:
         command = [
             'ffmpeg', '-y',
             '-f', 'concat', '-safe', '0', '-i', file_list_path,
-            '-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100',
-            '-c:v', 'libx264', '-profile:v', 'baseline', '-level', '3.0', '-pix_fmt', 'yuv420p',
-            '-c:a', 'aac', '-shortest',
+            '-c:v', 'libx264', '-preset', 'slow', '-crf', '24',
+            '-profile:v', 'high', '-pix_fmt', 'yuv420p',
+            '-an',
             '-movflags', '+faststart',
             final_video_path
         ]
