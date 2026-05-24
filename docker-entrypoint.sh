@@ -103,6 +103,19 @@ if [ -e "/home/biocoder/.ssh" ]; then
     echo "SSH keys copied to writable location with correct permissions"
 fi
 
+# Give the application user access to host-mounted Jetson device nodes.
+for DEVICE_PATH in /dev/nvhost* /dev/nvmap /dev/nvidia* /dev/dri/* /dev/video* /dev/media*; do
+    if [ -e "$DEVICE_PATH" ]; then
+        DEVICE_GID=$(stat -c '%g' "$DEVICE_PATH")
+        DEVICE_GROUP=$(getent group "$DEVICE_GID" | cut -d: -f1)
+        if [ -z "$DEVICE_GROUP" ]; then
+            DEVICE_GROUP="hostdev_$DEVICE_GID"
+            groupadd -g "$DEVICE_GID" "$DEVICE_GROUP" 2>/dev/null || true
+        fi
+        usermod -aG "$DEVICE_GROUP" biocoder 2>/dev/null || true
+    fi
+done
+
 echo ""
 echo "Starting BioCoder-Edge Main Application..."
 echo "-------------------------------------------------------------------"
