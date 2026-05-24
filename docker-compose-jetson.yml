@@ -26,7 +26,7 @@ services:
       args:
         # Use the dustynv/l4t-ml container, which is a comprehensive ML image
         # that directly matches the host's R36 JetPack version.
-        BASE_IMAGE: dustynv/l4t-ml:r36.2.0
+        BASE_IMAGE: dustynv/l4t-ml:r36.4.0
 
     # Image name after building
     image: biocoder-edge-gpu:latest
