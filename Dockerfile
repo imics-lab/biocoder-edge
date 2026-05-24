@@ -63,6 +63,7 @@ WORKDIR /app
 # --no-dependencies prevents pip from replacing the pre-compiled packages
 # in the base image (like numpy, torch, etc.)
 RUN pip install --no-dependencies ultralytics
+RUN pip install matplotlib
 
 # Database & Networking
 RUN pip install psycopg2-binary paramiko
