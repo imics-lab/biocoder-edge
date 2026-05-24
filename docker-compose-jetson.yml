@@ -59,6 +59,7 @@ services:
       # Data directories for output and uploads
       - ./data/pending_upload:/app/data/pending_upload
       - ./data/uploaded:/app/data/uploaded
+      - ./data/temp_debug:/app/data/temp_debug
 
       # Logs directory for persistent logging
       - ./logs:/app/logs
