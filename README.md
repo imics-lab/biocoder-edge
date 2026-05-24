@@ -67,17 +67,16 @@ graph TD
 
 ## Getting Started
 
-Follow these instructions to get a copy of the project up and running on your local machine for development and testing.
+BioCoder-Edge is primarily intended to run in a Docker container on a CUDA-capable edge device. The Docker setup provides the expected runtime environment, GPU access, camera device mappings, persistent data directories, and the live-view service. See [`DOCKER.md`](DOCKER.md) for the full deployment guide.
 
 ### Prerequisites
 
--   Python 3.8 or higher
 -   An NVIDIA Jetson device (or a Linux PC with a CUDA-enabled GPU). **Note:** This application is computationally intensive and requires a CUDA-enabled GPU to run effectively. CPU-only execution is not supported due to poor performance.
 -   A connected camera (USB webcam or CSI camera)
--   `ffmpeg` installed (`sudo apt-get install ffmpeg`)
+-   Docker and NVIDIA Container Toolkit installed on the target device
 -   Access to a remote server with PostgreSQL and an SFTP user
 
-### Installation
+### Docker Deployment
 
 1.  **Clone the repository:**
     ```sh
@@ -85,18 +84,7 @@ Follow these instructions to get a copy of the project up and running on your lo
     cd biocoder-edge
     ```
 
-2.  **Create and activate a Python virtual environment (recommended):**
-    ```sh
-    python3 -m venv venv
-    source venv/bin/activate
-    ```
-
-3.  **Install the required dependencies:**
-    ```sh
-    pip install -r requirements.txt
-    ```
-
-4.  **Configure the application:**
+2.  **Configure the application:**
     
     BioCoder-Edge uses a two-layer configuration approach:
     
@@ -110,15 +98,36 @@ Follow these instructions to get a copy of the project up and running on your lo
     -   **Algorithm parameters** (`config/config.yaml`):
         Edit this file to adjust motion detection thresholds, species of interest, and other algorithm settings. This file is safe to commit to version control.
 
+3.  **Place model weights:**
+    Put the trained YOLO model at `model_weight/best.pt`.
+
+4.  **Run with Docker Compose:**
+    ```sh
+    docker compose -f docker-compose-jetson.yml up --build -d
+    ```
+    Use `docker-compose-jetson.yml` for Jetson devices and `docker-compose-gpu.yml` for generic NVIDIA GPU machines. See [`DOCKER.md`](DOCKER.md) for platform-specific prerequisites, volume mappings, logs, troubleshooting, and live-view details.
+
 ## Usage
 
-To run the entire application, execute the main script from the root directory:
+For normal operation, run the application through Docker Compose on the target device:
 
 ```sh
-python main.py
+docker compose -f docker-compose-jetson.yml up -d
 ```
 
-The application will start all three modules. You will see log messages in your terminal indicating the status of each module. To stop the application gracefully, press `Ctrl+C`.
+The container starts the main application and stream server together. To view logs:
+
+```sh
+docker compose -f docker-compose-jetson.yml logs -f
+```
+
+To stop the application:
+
+```sh
+docker compose -f docker-compose-jetson.yml down
+```
+
+Running `python main.py` directly is mainly useful for local development or debugging outside the container, and requires manually installing the Python and system dependencies described by the Docker image.
 
 ## Project Structure
 

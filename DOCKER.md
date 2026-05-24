@@ -25,7 +25,7 @@ BioCoder-Edge provides two Docker Compose configurations to support different ha
 
 ### 2. **docker-compose-jetson.yml** - NVIDIA Jetson Devices
 - **Use case:** NVIDIA Jetson Nano, Jetson Orin, and other Jetson family devices
-- **Base image:** `dustynv/l4t-ml:r36.2.0` (JetPack-optimized with L4T)
+- **Base image:** `dustynv/l4t-ml:r36.4.0` (JetPack-optimized with L4T)
 - **Requirements:** JetPack SDK installed on host
 - **Optimizations:** `cudaMallocAsync` backend for Jetson memory management, privileged mode for V4L2
 - **Camera support:** USB cameras and CSI cameras with full media controller access
