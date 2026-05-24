@@ -64,19 +64,19 @@ WORKDIR /app
 # to ensure it uses the system-provided torch.
 # --no-dependencies prevents pip from replacing the pre-compiled packages
 # in the base image (like numpy, torch, etc.)
-RUN pip install --no-dependencies ultralytics
-RUN pip install matplotlib
+RUN python -m pip install --index-url https://pypi.org/simple --no-dependencies ultralytics
+RUN python -m pip install --index-url https://pypi.org/simple matplotlib
 
 # Database & Networking
-RUN pip install psycopg2-binary paramiko
+RUN python -m pip install --index-url https://pypi.org/simple psycopg2-binary paramiko
 # Utilities
-RUN pip install PyYAML
+RUN python -m pip install --index-url https://pypi.org/simple PyYAML
 
 # Web server for the optional remote live stream
-RUN pip install Flask==2.2.5
+RUN python -m pip install --index-url https://pypi.org/simple Flask==2.2.5
 
 # For EXIF timestamping in live view
-RUN pip install piexif
+RUN python -m pip install --index-url https://pypi.org/simple piexif
 
 # -----------------------------------------------------------------------------
 # Copy Application Code
