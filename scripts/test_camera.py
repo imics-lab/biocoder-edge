@@ -2,7 +2,7 @@
 """
 Camera Test Script
 
-This script tests the camera/video source before running the main BioCoder-Edge application.
+This script tests the camera/video source before running the main FaunaScope-Edge application.
 It emulates how the MotionDetector initializes and uses the camera.
 
 Usage:
@@ -25,7 +25,7 @@ def test_camera(video_source):
         video_source: Camera index (int) or path to video file (str)
     """
     print("=" * 60)
-    print("BioCoder-Edge Camera Test")
+    print("FaunaScope-Edge Camera Test")
     print("=" * 60)
     print(f"Video source: {video_source}")
     print()
@@ -168,7 +168,7 @@ def test_camera(video_source):
 def main():
     """Main entry point for the camera test script."""
     parser = argparse.ArgumentParser(
-        description="Test camera/video source for BioCoder-Edge",
+        description="Test camera/video source for FaunaScope-Edge",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:

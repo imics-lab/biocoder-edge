@@ -1,5 +1,5 @@
-# BioCoder-Edge Docker Compose Configuration - Jetson Variant
-# This file is specifically for running BioCoder-Edge on NVIDIA Jetson devices
+# FaunaScope-Edge Docker Compose Configuration - Jetson Variant
+# This file is specifically for running FaunaScope-Edge on NVIDIA Jetson devices
 # Both main.py and stream_server.py run automatically in a single container
 # Optimized for Jetson Nano, Jetson Orin, and other Jetson family devices
 #
@@ -15,9 +15,9 @@
 #   Stop & clean:    docker compose -f docker-compose-jetson.yml down -v
 
 services:
-  biocoder-edge:
+  FaunaScope-edge:
     # Service name for the main application
-    container_name: biocoder-edge-gpu
+    container_name: FaunaScope-edge-gpu
 
     # Build configuration with NVIDIA CUDA base image
     build:
@@ -29,7 +29,7 @@ services:
         BASE_IMAGE: dustynv/l4t-ml:r36.4.0
 
     # Image name after building
-    image: biocoder-edge-gpu:latest
+    image: FaunaScope-edge-gpu:latest
 
     # Override the default CMD with the entrypoint script
     # This runs both main.py and stream_server.py automatically
@@ -54,7 +54,7 @@ services:
       - ./model_weight:/app/model_weight:ro
 
       # SSH key for remote access (writable so entrypoint can fix permissions)
-      - /home/imics/.ssh/azure_vm2_key:/home/biocoder/.ssh/azure_vm2_key
+      - /home/imics/.ssh/azure_vm2_key:/home/FaunaScope/.ssh/azure_vm2_key
 
       # Data directories for output and uploads
       - ./data/pending_upload:/app/data/pending_upload
@@ -68,7 +68,7 @@ services:
       - /dev/shm:/dev/shm
 
       # Temporary directory for large event processing
-      - biocoder-temp:/tmp/biocoder_edge_temp
+      - FaunaScope-temp:/tmp/FaunaScope_edge_temp
 
     # Privileged mode for full device access (needed for V4L2 on Jetson)
     privileged: true
@@ -144,7 +144,7 @@ services:
 
 # Named volumes
 volumes:
-  biocoder-temp:
+  FaunaScope-temp:
     driver: local
     driver_opts:
       type: tmpfs

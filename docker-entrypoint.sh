@@ -1,11 +1,11 @@
 #!/bin/bash
-# BioCoder-Edge Docker Entrypoint Script
+# FaunaScope-Edge Docker Entrypoint Script
 # This script starts both the main application and the stream server
 
 set -e
 
 echo "==================================================================="
-echo "BioCoder-Edge Docker Container Starting"
+echo "FaunaScope-Edge Docker Container Starting"
 echo "==================================================================="
 
 # Start a virtual X server in the background to satisfy EGL requirements.
@@ -75,30 +75,30 @@ fi
 # Fix permissions on mounted volumes (must run as root)
 echo ""
 echo "Fixing permissions on mounted volumes..."
-chown -R biocoder:biocoder /app/logs /app/data /tmp/biocoder_edge_temp 2>/dev/null || true
+chown -R FaunaScope:FaunaScope /app/logs /app/data /tmp/FaunaScope_edge_temp 2>/dev/null || true
 
 # Fix SSH key permissions if mounted (must run as root)
 # SSH keys must be owned by the user running the application and have 600 permissions
 # Since bind-mounted files can't have their ownership changed, we copy them to a writable location
-if [ -e "/home/biocoder/.ssh" ]; then
+if [ -e "/home/FaunaScope/.ssh" ]; then
     echo "Fixing SSH key permissions..."
-    # Create a writable SSH directory for the biocoder user
-    mkdir -p /home/biocoder/.ssh_writable
-    chown biocoder:biocoder /home/biocoder/.ssh_writable
-    chmod 700 /home/biocoder/.ssh_writable
+    # Create a writable SSH directory for the FaunaScope user
+    mkdir -p /home/FaunaScope/.ssh_writable
+    chown FaunaScope:FaunaScope /home/FaunaScope/.ssh_writable
+    chmod 700 /home/FaunaScope/.ssh_writable
     
     # Copy all SSH keys from the mounted location to the writable location
-    if [ -f "/home/biocoder/.ssh/azure_vm2_key" ]; then
-        cp -f /home/biocoder/.ssh/azure_vm2_key /home/biocoder/.ssh_writable/
+    if [ -f "/home/FaunaScope/.ssh/azure_vm2_key" ]; then
+        cp -f /home/FaunaScope/.ssh/azure_vm2_key /home/FaunaScope/.ssh_writable/
     fi
     # Copy other common SSH key formats
-    cp -f /home/biocoder/.ssh/*_key /home/biocoder/.ssh_writable/ 2>/dev/null || true
-    cp -f /home/biocoder/.ssh/id_* /home/biocoder/.ssh_writable/ 2>/dev/null || true
+    cp -f /home/FaunaScope/.ssh/*_key /home/FaunaScope/.ssh_writable/ 2>/dev/null || true
+    cp -f /home/FaunaScope/.ssh/id_* /home/FaunaScope/.ssh_writable/ 2>/dev/null || true
     
     # Fix ownership and permissions on the writable copies
-    chown -R biocoder:biocoder /home/biocoder/.ssh_writable
-    chmod 700 /home/biocoder/.ssh_writable
-    chmod 600 /home/biocoder/.ssh_writable/* 2>/dev/null || true
+    chown -R FaunaScope:FaunaScope /home/FaunaScope/.ssh_writable
+    chmod 700 /home/FaunaScope/.ssh_writable
+    chmod 600 /home/FaunaScope/.ssh_writable/* 2>/dev/null || true
     
     echo "SSH keys copied to writable location with correct permissions"
 fi
@@ -112,16 +112,16 @@ for DEVICE_PATH in /dev/nvhost* /dev/nvmap /dev/nvidia* /dev/dri/* /dev/video* /
             DEVICE_GROUP="hostdev_$DEVICE_GID"
             groupadd -g "$DEVICE_GID" "$DEVICE_GROUP" 2>/dev/null || true
         fi
-        usermod -aG "$DEVICE_GROUP" biocoder 2>/dev/null || true
+        usermod -aG "$DEVICE_GROUP" FaunaScope 2>/dev/null || true
     fi
 done
 
 echo ""
-echo "Starting BioCoder-Edge Main Application..."
+echo "Starting FaunaScope-Edge Main Application..."
 echo "-------------------------------------------------------------------"
 
-# Start the main application in the background as biocoder user
-gosu biocoder python main.py &
+# Start the main application in the background as FaunaScope user
+gosu FaunaScope python main.py &
 MAIN_PID=$!
 echo "Main application started with PID: $MAIN_PID"
 
@@ -132,14 +132,14 @@ echo ""
 echo "Starting Stream Server..."
 echo "-------------------------------------------------------------------"
 
-# Start the stream server in the background as biocoder user
-gosu biocoder python scripts/stream_server.py &
+# Start the stream server in the background as FaunaScope user
+gosu FaunaScope python scripts/stream_server.py &
 STREAM_PID=$!
 echo "Stream server started with PID: $STREAM_PID"
 
 echo ""
 echo "==================================================================="
-echo "BioCoder-Edge is now running!"
+echo "FaunaScope-Edge is now running!"
 echo "==================================================================="
 echo "Main Application PID: $MAIN_PID"
 echo "Stream Server PID:    $STREAM_PID"

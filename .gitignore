@@ -208,3 +208,5 @@ __marimo__/
 
 # Log files
 logs/*.log
+
+llm_interaction_log.md

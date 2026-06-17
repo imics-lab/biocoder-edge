@@ -50,9 +50,9 @@ def load_config(config_path="config/config.yaml"):
 
 def main():
     """
-    The main entry point for the BioCoder-Edge application.
+    The main entry point for the FaunaScope-Edge application.
     """
-    parser = argparse.ArgumentParser(description="Run the BioCoder-Edge application.")
+    parser = argparse.ArgumentParser(description="Run the FaunaScope-Edge application.")
     parser.add_argument(
         '--video',
         type=str,
@@ -61,7 +61,7 @@ def main():
     )
     args = parser.parse_args()
 
-    print("--- BioCoder-Edge Application Starting ---")
+    print("--- FaunaScope-Edge Application Starting ---")
 
     # 1. Load configuration from the YAML file
     config = load_config()
@@ -135,7 +135,7 @@ def main():
                 p.join(timeout=5)  # Wait for the process to exit
         
         print("All processes have been terminated.")
-        print("--- BioCoder-Edge Application Shut Down ---")
+        print("--- FaunaScope-Edge Application Shut Down ---")
 
 if __name__ == "__main__":
     # Set the start method to 'spawn' right at the beginning.

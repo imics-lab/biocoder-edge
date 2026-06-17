@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Python Package Requirements for BioCoder-Edge
+# Python Package Requirements for FaunaScope-Edge
 # -----------------------------------------------------------------------------
 # This file lists all the Python dependencies needed to run the application.
 # Install them using the following command:

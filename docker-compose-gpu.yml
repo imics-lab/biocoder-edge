@@ -1,5 +1,5 @@
-# BioCoder-Edge Docker Compose Configuration - Generic GPU Variant
-# This file is for running BioCoder-Edge on any NVIDIA GPU-enabled machine with CUDA support
+# FaunaScope-Edge Docker Compose Configuration - Generic GPU Variant
+# This file is for running FaunaScope-Edge on any NVIDIA GPU-enabled machine with CUDA support
 # Both main.py and stream_server.py run automatically in a single container
 # Useful for desktop/server machines with NVIDIA GPUs (RTX, Tesla, etc.)
 #
@@ -20,9 +20,9 @@
 #   Stop & clean:    docker compose -f docker-compose-gpu.yml down -v
 
 services:
-  biocoder-edge:
+  FaunaScope-edge:
     # Service name for the main application
-    container_name: biocoder-edge-gpu
+    container_name: FaunaScope-edge-gpu
 
     # Build configuration with NVIDIA PyTorch CUDA base image
     build:
@@ -37,7 +37,7 @@ services:
         # BASE_IMAGE: nvcr.io/nvidia/pytorch:24.12-py3
 
     # Image name after building
-    image: biocoder-edge-gpu:latest
+    image: FaunaScope-edge-gpu:latest
 
     # Override the default CMD with the entrypoint script
     # This runs both main.py and stream_server.py automatically
@@ -64,8 +64,8 @@ services:
       # SSH key for remote access (OPTIONAL - only needed for SFTP uploads)
       # Uncomment and adjust the path to match your SSH private key location
       # Note: Do NOT use :ro flag - entrypoint needs to fix permissions
-      # Example: - ~/.ssh/id_rsa:/home/biocoder/.ssh/id_rsa
-      # - ~/.ssh/your_key:/home/biocoder/.ssh/your_key
+      # Example: - ~/.ssh/id_rsa:/home/FaunaScope/.ssh/id_rsa
+      # - ~/.ssh/your_key:/home/FaunaScope/.ssh/your_key
 
       # Data directories for output and uploads
       - ./data/pending_upload:/app/data/pending_upload
@@ -79,7 +79,7 @@ services:
       # - /dev/shm:/dev/shm
 
       # Temporary directory for large event processing
-      - biocoder-temp:/tmp/biocoder_edge_temp
+      - FaunaScope-temp:/tmp/FaunaScope_edge_temp
 
     # Device mappings - grant container access to hardware
     devices:
@@ -144,7 +144,7 @@ services:
 
 # Named volumes
 volumes:
-  biocoder-temp:
+  FaunaScope-temp:
     driver: local
     driver_opts:
       type: tmpfs

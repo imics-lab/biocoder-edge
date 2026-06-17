@@ -1,10 +1,10 @@
-# BioCoder-Edge
+# FaunaScope-Edge
 
-An intelligent, field-deployable animal monitoring system. BioCoder-Edge uses a multi-stage AI pipeline to efficiently detect animal activity, capture high-quality video, and reliably upload significant events to a central database for scientific research.
+An intelligent, field-deployable animal monitoring system. FaunaScope-Edge uses a multi-stage AI pipeline to efficiently detect animal activity, capture high-quality video, and reliably upload significant events to a central database for scientific research.
 
 ## Overview
 
-This repository contains the source code for the edge device component of the BioCoder project. The system is designed to run on a power-constrained device (like a Jetson Nano Orin) deployed in the wild. It employs a three-module architecture to maximize efficiency and reliability:
+This repository contains the source code for the edge device component of the FaunaScope project. The system is designed to run on a power-constrained device (like a Jetson Nano Orin) deployed in the wild. It employs a three-module architecture to maximize efficiency and reliability:
 
 1.  **Motion Detection:** A lightweight, low-power process continuously monitors a low-resolution video stream for any motion.
 2.  **Animal Analysis:** When motion is detected, high-resolution frames are passed to a more powerful YOLO-based model to identify specific animal species.
@@ -26,7 +26,7 @@ The system includes an optional, on-demand live viewing feature. To use it, you 
 
 **Data Usage Note:** To prevent accidental high data usage on LTE connections, the live stream is limited by a timer (default 60 seconds). When the timer expires, the stream pauses and must be manually refreshed. You can adjust this limit via `stream_timeout_seconds` in `config.yaml`.
 
-The main `biocoder-edge` application must be running for this feature to work.
+The main `FaunaScope-edge` application must be running for this feature to work.
 
 ### Local Viewing (On the Jetson Desktop)
 
@@ -67,7 +67,7 @@ graph TD
 
 ## Getting Started
 
-BioCoder-Edge is primarily intended to run in a Docker container on a CUDA-capable edge device. The Docker setup provides the expected runtime environment, GPU access, camera device mappings, persistent data directories, and the live-view service. See [`DOCKER.md`](DOCKER.md) for the full deployment guide.
+FaunaScope-Edge is primarily intended to run in a Docker container on a CUDA-capable edge device. The Docker setup provides the expected runtime environment, GPU access, camera device mappings, persistent data directories, and the live-view service. See [`DOCKER.md`](DOCKER.md) for the full deployment guide.
 
 ### Prerequisites
 
@@ -80,13 +80,13 @@ BioCoder-Edge is primarily intended to run in a Docker container on a CUDA-capab
 
 1.  **Clone the repository:**
     ```sh
-    git clone https://github.com/your-username/biocoder-edge.git
-    cd biocoder-edge
+    git clone https://github.com/your-username/FaunaScope-edge.git
+    cd FaunaScope-edge
     ```
 
 2.  **Configure the application:**
     
-    BioCoder-Edge uses a two-layer configuration approach:
+    FaunaScope-Edge uses a two-layer configuration approach:
     
     -   **Hardware and credentials** (`.env` file):
         ```sh

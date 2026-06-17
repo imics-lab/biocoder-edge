@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# BioCoder-Edge: Main Configuration File
+# FaunaScope-Edge: Main Configuration File
 # -----------------------------------------------------------------------------
 # This file contains all the tunable parameters for the application.
 # Edit these values to match your specific hardware and server setup.
@@ -111,7 +111,7 @@ animal_analyzer:
 
   # A directory for storing temporary video parts DURING detection.
   # Using /tmp (RAM disk) minimizes disk I/O and wear on the SD card/NVMe.
-  output_temp_dir: "/tmp/biocoder_edge_temp/"
+  output_temp_dir: "/tmp/FaunaScope_edge_temp/"
 
 # =============================================================================
 # Module C: Data Uploader Configuration

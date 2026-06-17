@@ -15,7 +15,7 @@ def load_config(config_path="config/config.yaml"):
 
 def main():
     """Main function to view the live frame from the RAM disk."""
-    parser = argparse.ArgumentParser(description="Local Live Viewer for BioCoder-Edge")
+    parser = argparse.ArgumentParser(description="Local Live Viewer for FaunaScope-Edge")
     parser.add_argument('--config', type=str, default="config/config.yaml", help="Path to the config file.")
     args = parser.parse_args()
 
@@ -37,7 +37,7 @@ def main():
                 try:
                     frame = cv2.imread(ram_disk_path)
                     if frame is not None:
-                        cv2.imshow("BioCoder-Edge Local Live View", frame)
+                        cv2.imshow("FaunaScope-Edge Local Live View", frame)
                 except Exception as e:
                     print(f"Could not read or display frame: {e}")
             

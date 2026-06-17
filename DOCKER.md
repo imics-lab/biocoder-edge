@@ -1,6 +1,6 @@
-# BioCoder-Edge Docker Deployment Guide
+# FaunaScope-Edge Docker Deployment Guide
 
-This guide explains how to build and run BioCoder-Edge using Docker Compose on systems with NVIDIA GPU support.
+This guide explains how to build and run FaunaScope-Edge using Docker Compose on systems with NVIDIA GPU support.
 
 ## Table of Contents
 
@@ -13,7 +13,7 @@ This guide explains how to build and run BioCoder-Edge using Docker Compose on s
 
 ## Deployment Options
 
-BioCoder-Edge provides two Docker Compose configurations to support different hardware platforms:
+FaunaScope-Edge provides two Docker Compose configurations to support different hardware platforms:
 
 ### 1. **docker-compose-gpu.yml** - Generic GPU Machines
 - **Use case:** Desktop/server machines with NVIDIA GPUs (RTX, Tesla, Pascal/Volta/Turing/Ampere)
@@ -91,8 +91,8 @@ For desktop/server machines with standard NVIDIA GPUs (RTX, Tesla, A100, etc.):
 
 1.  **Clone the repository** (if you haven't already):
     ```bash
-    git clone https://github.com/your-username/biocoder-edge.git
-    cd biocoder-edge
+    git clone https://github.com/your-username/FaunaScope-edge.git
+    cd FaunaScope-edge
     ```
 
 2.  **Prepare configuration**:
@@ -112,7 +112,7 @@ For desktop/server machines with standard NVIDIA GPUs (RTX, Tesla, A100, etc.):
     ```
 6. **Clean logs**:
     ```bash
-    sudo truncate -s 0 $(docker inspect --format='{{.LogPath}}' biocoder-edge-gpu)
+    sudo truncate -s 0 $(docker inspect --format='{{.LogPath}}' FaunaScope-edge-gpu)
     ```
 
 7.  **Access Live View**:
@@ -129,8 +129,8 @@ For NVIDIA Jetson devices (Jetson Nano, Jetson Orin, etc.):
 
 1.  **Clone the repository** (if you haven't already):
     ```bash
-    git clone https://github.com/your-username/biocoder-edge.git
-    cd biocoder-edge
+    git clone https://github.com/your-username/FaunaScope-edge.git
+    cd FaunaScope-edge
     ```
 
 2.  **Prepare configuration**:
@@ -150,7 +150,7 @@ For NVIDIA Jetson devices (Jetson Nano, Jetson Orin, etc.):
     ```
 6. **Clean logs**:
     ```bash
-    sudo truncate -s 0 $(docker inspect --format='{{.LogPath}}' biocoder-edge-gpu)
+    sudo truncate -s 0 $(docker inspect --format='{{.LogPath}}' FaunaScope-edge-gpu)
     ```
 7.  **Access Live View**:
     Once the container is running, the live view is available at `http://<YOUR_JETSON_IP>:8080`.
@@ -178,7 +178,7 @@ All application-level settings (camera resolution, model confidence, uploader se
 docker info | grep -i runtime
 
 # Test GPU access inside the running container
-docker exec -it biocoder-edge-gpu nvidia-smi
+docker exec -it FaunaScope-edge-gpu nvidia-smi
 ```
 
 ### Camera Not Found
@@ -192,7 +192,7 @@ ls -la /dev/video*
 
 ### Start an interactive shell inside the container
 ```bash
-docker exec -it biocoder-edge-gpu /bin/bash
+docker exec -it FaunaScope-edge-gpu /bin/bash
 ```
 
 ### Switching Between Configurations

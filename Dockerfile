@@ -1,4 +1,4 @@
-# BioCoder-Edge Dockerfile
+# FaunaScope-Edge Dockerfile
 # This Dockerfile supports both Jetson and generic GPU (NVIDIA CUDA) deployments
 # For Jetson: use docker-compose-jetson.yml (BASE_IMAGE=dustynv/l4t-ml:r36.2.0)
 # For generic GPU: use docker-compose-gpu.yml (BASE_IMAGE=nvcr.io/nvidia/pytorch:24.12-py3)
@@ -44,12 +44,12 @@ RUN ln -sf /usr/bin/python3 /usr/bin/python || true
 # Create Application User (security best practice)
 # -----------------------------------------------------------------------------
 # Create the user and add them to the 'video' group to allow camera access
-RUN groupadd -r biocoder \
+RUN groupadd -r FaunaScope \
     && (getent group render >/dev/null || groupadd -r render) \
-    && useradd -r -g biocoder -G video,render -m biocoder
+    && useradd -r -g FaunaScope -G video,render -m FaunaScope
 
-RUN mkdir -p /home/biocoder/.config
-RUN chown -R biocoder:biocoder /home/biocoder
+RUN mkdir -p /home/FaunaScope/.config
+RUN chown -R FaunaScope:FaunaScope /home/FaunaScope
 
 # -----------------------------------------------------------------------------
 # Set Working Directory
@@ -100,14 +100,14 @@ RUN mkdir -p \
     /app/data/uploaded \
     /app/model_weight \
     /app/logs \
-    /tmp/biocoder_edge_temp \
-    && chown -R biocoder:biocoder /app /tmp/biocoder_edge_temp
+    /tmp/FaunaScope_edge_temp \
+    && chown -R FaunaScope:FaunaScope /app /tmp/FaunaScope_edge_temp
 
 # -----------------------------------------------------------------------------
 # Set Ownership
 # -----------------------------------------------------------------------------
-# Change ownership of all application files to the biocoder user
-RUN chown -R biocoder:biocoder /app
+# Change ownership of all application files to the FaunaScope user
+RUN chown -R FaunaScope:FaunaScope /app
 
 # -----------------------------------------------------------------------------
 # Health Check

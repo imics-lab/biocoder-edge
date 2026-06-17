@@ -126,7 +126,7 @@ def index():
     return f"""
     <html>
       <head>
-        <title>BioCoder-Edge Live Stream</title>
+        <title>FaunaScope-Edge Live Stream</title>
         <style>
             body {{ 
                 font-family: sans-serif; 
@@ -327,7 +327,7 @@ def video_feed():
     return resp
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Live Stream Server for BioCoder-Edge")
+    parser = argparse.ArgumentParser(description="Live Stream Server for FaunaScope-Edge")
     parser.add_argument('--host', type=str, default='0.0.0.0', help="Host to bind to (0.0.0.0 for all interfaces)")
     parser.add_argument('--port', type=int, default=8080, help="Port to listen on")
     args = parser.parse_args()
